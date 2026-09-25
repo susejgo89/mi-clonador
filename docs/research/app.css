@@ -1,0 +1,3964 @@
+/* ─────────────────────────────────────────────────────────────
+   Kutly App — Workflow / Product UI
+   Dark app shell + form controls. Colors come from the tokens
+   colors_and_type.css defines on :root.
+   ───────────────────────────────────────────────────────────── */
+
+/* ── SHELL ─────────────────────────────────────────────────── */
+body { margin: 0; }
+.app-root {
+  display: grid;
+  grid-template-columns: 248px 1fr;
+  height: 100vh; height: 100dvh;
+  overflow: hidden;   /* app shell: the page never scrolls — only inner regions do */
+  /* The rail's dark, painted on the SHELL rather than on the rail itself. That is what turns
+     the boundary from a line into a curve: the same ground now runs behind the rail AND
+     around the content panel, so the panel can round its corners into it instead of butting
+     against a 1px rule. `color-mix` rather than a second literal, so it stays the composite
+     of the rail's old rgba(0,0,0,0.22) over --bg and moves if the page colour does. */
+  background: color-mix(in srgb, #000 22%, var(--bg));
+  /* The width animates, and it is the ONLY thing that does.
+     This transition was here before, was removed for juddering, and is back because the
+     judder was never the transition. Everything keyed to the collapsed state used to move
+     the instant the class landed — measured, the mark jumped 5px and each nav icon 2px —
+     while the column took 180ms to arrive under them. A small snap against a long slide is
+     what the eye reads as a shudder.
+     So the collapsed rail is now 60px rather than 64, and that number is computed rather
+     than chosen: the rail's 12px padding plus a row's 10px puts every glyph's left edge at
+     22, so a symmetric rail is 22 + 16 + 22. At exactly that width the icons, the mark and
+     the avatar are already where the collapsed rail wants them, and not one of the rules
+     below moves anything sideways. The words leave by fading while the rail's own edge
+     clips them.
+     Which leaves a single animated property with nothing racing it. */
+  transition: grid-template-columns 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── SIDEBAR ───────────────────────────────────────────────── */
+/* The rail. Darker than the page rather than lighter, and separated by that difference
+   plus one hairline of the panels' own light — it used to be a --bg-elev slab with a hard
+   --border down its edge, which is a wall between two rooms rather than the edge of one. */
+.app-sidebar {
+  height: 100vh; height: 100dvh;
+  box-sizing: border-box;
+  overflow-y: auto;   /* the sidebar owns its own scroll — wheel here never scrolls the content */
+  /* Both moved to .app-root — the rail is a transparent column on the shell's ground now,
+     and the hairline it used to draw is the content panel's own border. */
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 12px 14px;
+}
+/* Expanded, the two sit side by side: the star at the left and the collapse control at the
+   far right, both simply there. Sharing one slot is what a 40px rail forces, not something
+   worth doing when there are 224px — over-hovering a control the user can already see is
+   just hiding it. The swap lives in the .is-rail-collapsed block below. */
+.sb-head {
+  position: relative;
+  display: flex; align-items: center;
+  height: 34px;
+  /* 5, not 2: it puts the mark's centre on 30, which is where the nav glyphs' centres are
+     (12 rail padding + 10 row padding + 8 half-glyph). They were three pixels apart, which
+     is invisible in a wide rail and is exactly what made the logo jump when the rail
+     narrowed around it — there was no single axis for both to already be on. */
+  padding: 0 5px;
+  margin: 0 0 24px;
+  flex-shrink: 0;
+}
+/* The star alone. It carries its colour in the file rather than inheriting it, because an
+   <img> renders the SVG in its own document — `currentColor` there has nothing to inherit
+   from and resolves to black, which on this rail is a hole. */
+/* The same duration and the same curve as the control it trades places with. It had NO
+   transition at all, which is exactly why the swap felt soft going in and snapped coming
+   out: the icon was fading while the star was cutting. A crossfade where only one side
+   fades is not a crossfade, it is a fade and a jump. */
+.sb-mark {
+  height: 26px; width: 26px; flex-shrink: 0;
+  transition: opacity 0.18s ease;
+}
+
+.sb-collapse {
+  margin-left: auto;   /* the far edge of the rail, where a panel control belongs */
+  width: 34px; height: 34px;
+  border-radius: 10px;
+  display: grid; place-items: center;
+  background: none; border: 0; color: var(--fg-3);
+  cursor: pointer;
+  transition: opacity 0.18s ease, background 0.15s, color 0.15s;
+}
+.sb-collapse:hover { background: rgba(255,255,255,0.06); color: var(--fg-1); }
+
+/* .sb-section-label is gone with the word it set: "WORKSPACE", in 10px tracked out to
+   0.22em, over a list of two links that are entirely visible without it. */
+.sb-nav { display: flex; flex-direction: column; gap: 2px; }
+/* The second, one-row nav — the docs link — is what takes the column's slack, so it sits
+   at the foot of the rail with the footer directly under it. The footer used to take the
+   slack itself; two blocks with `margin-top: auto` in one flex column would split it
+   between them and leave the link floating halfway down. The padding is the room between
+   the row and the footer's hairline. */
+.sb-nav-aux { margin-top: auto; padding-bottom: 12px; }
+/* The rail's own edge is what takes the words: the rows clip, so a label on its way out
+   slides behind the boundary instead of spilling into the page, and `nowrap` means it never
+   re-wraps mid-flight — a two-line "Projects" appearing for four frames is the other way
+   this reads as a shudder. The 80ms delay is spent waiting for width on the way IN only;
+   the collapsed rule overrides it with a shorter, undelayed fade on the way out. */
+.sb-item, .sb-user, .sb-credit { overflow: hidden; }
+.sb-label, .sb-user-text, .sb-credit-row {
+  white-space: nowrap;
+  transition: opacity 0.16s ease 0.08s;
+}
+
+.sb-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  color: var(--fg-2);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  transition: background 0.15s, color 0.15s;
+  position: relative;
+  cursor: pointer;
+}
+.sb-item:hover {
+  background: rgba(255,255,255,0.05);
+  color: var(--fg-1);
+}
+/* Current is a lighter surface, the same one the composer's chips and the pickers' rows
+   use. It used to be a card fill PLUS an accent bar bleeding out of the rail's left
+   padding PLUS an accent-coloured glyph — three devices for one bit of state, two of them
+   spending the colour that belongs to the button that costs money. */
+.sb-item.is-active {
+  background: rgba(255,255,255,0.09);
+  color: var(--fg-1);
+}
+/* The slot is what the collapsed rail centres on, so it stays 16 whatever the glyph is. */
+.sb-item .sb-icon { display: inline-flex; align-items: center; justify-content: center;
+  flex: 0 0 16px; color: var(--fg-3); }
+.sb-item:hover .sb-icon, .sb-item.is-active .sb-icon { color: var(--fg-2); }
+
+.sb-footer {
+  /* No `margin-top: auto` here any more: .sb-nav-aux above it takes the slack. */
+  padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  display: flex; flex-direction: column; gap: 4px;
+}
+/* The one card in the rail, and it is made of the panels' glass rather than of --bg-card
+   with a --border round it. */
+/* A row, matching the two nav rows above it and the user row below — same padding, same
+   radius, same hover. It was a bordered, tinted card holding a 21px figure and a full-width
+   button; see CreditSummary for why none of that survived.
+   The label and the figure sit TOGETHER at the left, and the word that says where the row
+   goes sits at the right edge. They used to be at opposite ends, which is the shape of every
+   other key/value pair in the app — but a name and a number are one fact, and splitting
+   them to make room for a third element read as three unrelated things on one line. */
+.sb-credit {
+  position: relative;   /* the collapsed glyph is placed against this box */
+  display: flex; flex-direction: column; gap: 7px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+.sb-credit-row { display: flex; align-items: baseline; gap: 8px; }
+/* Out of the way until the rail is narrow: at the same 22px offset as every nav glyph
+   (10px of the row's own padding), vertically centred on the line the row occupies. */
+.sb-credit-icon {
+  position: absolute;
+  left: 10px; top: 9px;
+  display: grid; place-items: center;
+  width: 16px; height: 16px;
+  color: var(--fg-3);
+  opacity: 0;
+  transition: opacity 0.16s ease 0.08s;
+}
+.sb-credit:hover .sb-credit-icon { color: var(--fg-1); }
+/* Pushed to the edge rather than spaced by `justify-content`, so the label and the figure
+   stay adjacent — see the note in CreditSummary. */
+.sb-credit .cta { margin-left: auto; font-size: 11.5px; font-weight: 500; color: var(--fg-3); transition: color 0.15s; }
+.sb-credit:hover .cta { color: var(--fg-1); }
+/* What the cycle has left, as a share of what it had. 3px: a reading, not a control — the
+   accent is doing the same job it does on the live dot, marking the live quantity, and at
+   this height it cannot start competing with the two nav rows above it. */
+.sb-credit-bar {
+  height: 3px; border-radius: 3px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+}
+.sb-credit-bar > span {
+  display: block; height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+.sb-credit:hover { background: rgba(255,255,255,0.05); }
+.sb-credit .label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg-2);
+  transition: color 0.15s;
+}
+.sb-credit:hover .label { color: var(--fg-1); }
+.sb-credit .value {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg-1);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The account row and the inbox share a line — the row takes the space, the button sits at
+   its end. */
+/* Wraps rather than being restacked by the collapsed class: at 36px of usable width the
+   avatar and the bell cannot share a line, so the bell drops under it — which happens when
+   the rail actually gets that narrow, part-way through the animation, instead of jumping
+   there on the first frame. The 34px floor is what makes the wrap possible at all; without
+   it `flex: 1` shrinks the account link to nothing and the two never stop sharing a line. */
+/* NOWRAP, and the wrap is put back below for the one width that needs it.
+   It used to wrap unconditionally, which is a decision made against the COLLAPSED rail: at
+   60px an avatar and a 32px bell cannot share a line, so there they stack. Expanded, the
+   same rule reads somebody's name as a reason to move the bell — a flex line is packed from
+   each item's content size BEFORE any shrinking, so a long enough name pushes the bell to a
+   second row and the account block grows from 46px to 82px, even though .sb-user shrinks to
+   34px happily and the name has ellipsised for as long as it has existed. The name gets
+   shorter; the furniture does not move. */
+.sb-user-row {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  flex-wrap: nowrap;
+}
+.sb-user-row .sb-user { flex: 1 1 auto; min-width: 34px; }
+/* ...and at 60px it stacks, which is the case the wrap was written for. */
+.app-root.is-rail-collapsed .sb-user-row { flex-wrap: wrap; }
+
+.sb-inbox { position: relative; flex-shrink: 0; }
+.sb-inbox-btn {
+  width: 32px; height: 32px; border-radius: 10px;
+  display: grid; place-items: center;
+  background: transparent; border: 1px solid transparent; color: var(--fg-3);
+  cursor: pointer; position: relative;
+  transition: background 0.15s, color 0.15s;
+}
+.sb-inbox-btn:hover, .sb-inbox-btn.is-open { background: rgba(255,255,255,0.05); color: var(--fg-1); }
+/* The count, not just a dot: how many is a fact the panel would otherwise make you open it
+   to learn. Accent, because it is the one thing here that is new. */
+.sb-inbox-dot {
+  position: absolute; top: 1px; right: 1px;
+  min-width: 14px; height: 14px; padding: 0 3px;
+  border-radius: 7px;
+  background: var(--accent); color: #fff;
+  font-size: 9.5px; font-weight: 600; line-height: 14px; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+/* Opens UPWARD out of the rail's foot, over the content. FIXED, and placed from the
+   button's measured rect: the rail scrolls on its own (overflow-y:auto), which makes it a
+   scroll container, and a scroll container clips horizontally too — an absolute panel was
+   sliced off at the rail's edge. */
+.sb-inbox-panel {
+  position: fixed;
+  width: 340px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  box-shadow: var(--shadow-float);
+  overflow: hidden;
+  z-index: 60;
+}
+.sb-inbox-head {
+  padding: 12px 14px 10px;
+  font-size: 12.5px; font-weight: 600; color: var(--fg-1);
+  border-bottom: 1px solid var(--border);
+}
+/* One announcement. Title, prose, date — the shape of a changelog entry, at the size of a
+   rail popover rather than a marketing page. */
+.sb-news { padding: 14px; border-bottom: 1px solid var(--border); }
+.sb-news:last-child { border-bottom: 0; }
+.sb-news-title {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13.5px; font-weight: 600; color: var(--fg-1);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.sb-news-title:not(.is-plain):hover { color: var(--accent-hover); }
+/* 6px off the title, but a real paragraph break between paragraphs — at this size the two
+   need different numbers to read as different things. */
+.sb-news-body + .sb-news-body { margin-top: 9px; }
+.sb-news-body {
+  margin: 6px 0 0;
+  font-size: 13px; line-height: 1.5; color: var(--fg-2);
+  text-wrap: pretty;
+}
+/* Full width of the panel, at whatever shape the picture actually is.
+   It was pinned to 16:9 with object-fit: cover, which is the right handling for a
+   photograph and the wrong handling for the only kind of picture this panel carries: a
+   frame of the app. The redesign card is a recorded window at 1.95:1, and cover-cropping it
+   to 16:9 sliced the app off at both edges — an announcement illustrated with a screenshot
+   that does not fit its own frame. `height: auto` plus the img's real width/height
+   attributes gives the browser the ratio, so the box is still reserved before the file
+   lands and nothing under it jumps. */
+.sb-news-img {
+  display: block; width: 100%; height: auto; margin-top: 10px;
+  border-radius: 10px;
+  background: var(--surface-3);
+}
+.sb-news-when { margin-top: 8px; font-size: 11px; color: var(--fg-3); }
+.sb-inbox-list { max-height: 320px; overflow-y: auto; }
+
+/* The one thing in the rail that cannot stay put. Every glyph is 16 wide and lands centred
+   in a 60px rail from the same 22px offset it had in the wide one; the avatar is 28, so the
+   offset that centres IT is 16, not 22. Left-edge alignment and centre alignment cannot both
+   hold for two different widths.
+   So it moves — six pixels — and it moves ON THE SAME CURVE AND CLOCK AS THE RAIL, which is
+   the whole difference between travelling with the wall and jumping ahead of it. It is the
+   only element here with a transition on a layout property, and it is one element. */
+.sb-user {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  color: var(--fg-1);
+  text-decoration: none;
+  transition: background 0.15s, padding 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.sb-user:hover { background: rgba(255,255,255,0.05); }
+/* Not the accent. It was a filled carrot disc in the corner of every screen, which is one
+   more thing wearing the colour that is supposed to mean "this spends credits". */
+.sb-avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.10);
+  color: var(--fg-1);
+  display: grid; place-items: center;
+  font-size: 12.5px; font-weight: 600;
+  flex-shrink: 0;
+}
+.sb-user .name { font-size: 13.5px; font-weight: 500; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-user .plan { font-size: 11.5px; color: var(--fg-3); }
+.sb-user-text { min-width: 0; }
+
+
+/* ── COLLAPSED RAIL ────────────────────────────────────────── */
+/* 60px — see the note on .app-root for why that number and not a round one. It leaves
+   36px of usable width after the rail's padding: the 16px glyphs sit in it exactly where
+   they sat in the wide rail, and everything that needs words fades instead of moving. */
+.app-root.is-rail-collapsed { grid-template-columns: 60px 1fr; }
+/* Two things and one slot, so they lie on each other and trade by opacity. Only the control
+   is repositioned — the mark stays in the flow, at the same place it was — and `left: 1`
+   is what centres a 34px button on a 26px mark that starts at the head's 5px padding.
+   The star is what is there; bringing the pointer into the rail fades it out and the
+   control in. */
+.app-root.is-rail-collapsed .sb-collapse {
+  position: absolute;
+  left: 1px;
+  top: 0;
+  margin-left: 0;
+  opacity: 0;
+}
+/* 4 rather than 10: 12 of rail padding plus 4 puts the 28px avatar at 16..44, centred in
+   the 60. See the note on .sb-user for why this one is allowed to travel. */
+.app-root.is-rail-collapsed .sb-user { padding-left: 4px; padding-right: 4px; }
+
+/* HOLD THE MARK WHILE THE RAIL IS MOVING. `:hover` below is answered against the sidebar's
+   box, and during a collapse that box shrinks away from the pointer that just pressed the
+   control — so the swap resolved one way at 248px and the other at 60px inside a single
+   220ms animation. The pointer never moved; the thing it was tested against did.
+   The held state is the MARK, and getting that backwards is what kept the flicker alive
+   through one attempt at this: holding the CONTROL shown meant the logo vanished the
+   instant you pressed, the control teleported from the rail's right edge onto its place,
+   and 240ms later the two swapped back — logo, icon, logo, which is the symptom, produced
+   by the fix for it.
+   Holding the mark instead: the logo simply stays put for the whole travel, the control
+   folds away with the rail it belongs to, and when the rail stops hover decides once. In
+   the ordinary case — the pointer ends up outside a 60px rail, because it was over a
+   control near the right edge of a 248px one — that decision changes nothing at all, so
+   there is no second change to see.
+   IT HAS TO OUT-SPECIFY HOVER, not merely precede it. `.app-root.is-rail-collapsed
+   .app-sidebar:hover .sb-mark` is five classes deep; a hold written as
+   `.app-root.is-rail-busy.is-rail-collapsed .sb-mark` is four, so while the pointer was
+   still on the wide rail the hover rule won and the hold did nothing — which is exactly
+   why the first two attempts at this changed nothing anybody could see. The hold below
+   matches that weight with `.app-sidebar` and is declared AFTER both hover blocks, so it
+   wins on order. See the end of this section. */
+
+/* THE HEAD, not the whole rail. It used to be `.app-sidebar:hover`, so putting the pointer
+   anywhere in the collapsed rail — on Home, on Projects, on the credits, on the avatar —
+   took the logo away and left a faint grey panel glyph 300px above wherever you were
+   actually reaching. Which is most of the time you spend in a rail: you are in it to click
+   something in it.
+   Scoped to the 34px head, the swap happens when you reach for the control that does it and
+   at no other moment. Nothing is lost: the head is where you go to expand the rail again,
+   and the control is under the pointer by the time you need it. */
+@media (hover: hover) {
+  .app-root.is-rail-collapsed .sb-head:hover .sb-mark,
+  .app-root.is-rail-collapsed .sb-head:has(.sb-collapse:focus-visible) .sb-mark { opacity: 0; }
+  .app-root.is-rail-collapsed .sb-head:hover .sb-collapse,
+  .app-root.is-rail-collapsed .sb-collapse:focus-visible { opacity: 1; }
+}
+/* `:focus-visible`, and deliberately NOT `:focus-within`. A button keeps focus after it is
+   clicked, so `:focus-within` left the control lit after the pointer had gone — it only
+   went out when something else was clicked, which is a rail that looks stuck. The whole
+   point of :focus-visible is that a mouse press does not match it and a Tab does.
+   Where there is no pointer at all — a touchscreen — a control that appears on hover is a
+   control that does not exist, so it simply takes the slot and the star gives it up. */
+@media (hover: none) {
+  .app-root.is-rail-collapsed .sb-mark { opacity: 0; }
+  .app-root.is-rail-collapsed .sb-collapse { opacity: 1; }
+}
+
+/* THE HOLD. Five classes, to tie with the hover rules above, and last, so it takes the tie.
+   While the rail's width is travelling the logo stays exactly where it is and the control
+   folds away with the rail; nothing is asked of `:hover` until the box it is answered
+   against has stopped moving. */
+.app-root.is-rail-busy.is-rail-collapsed .app-sidebar .sb-mark { opacity: 1; }
+.app-root.is-rail-busy.is-rail-collapsed .app-sidebar .sb-collapse {
+  opacity: 0;
+  /* AND IT GOES AT ONCE, rather than fading. Measured: at 1ms into a collapse the control
+     still reads opacity 1.00 and has already jumped from x=197 to x=13 — the collapsed rule
+     puts it on top of the mark the instant the class lands, so its ordinary 0.18s fade plays
+     out ON the logo. The logo underneath never moved and never dimmed; it was simply covered
+     by an icon dissolving over it for 180ms, which is exactly the flicker that survived two
+     fixes aimed at the logo instead of at the thing on top of it.
+     Only in this direction: `.is-rail-collapsed` is present from the first frame of a
+     collapse and absent from the first frame of an expand, so coming back the control still
+     fades in normally. */
+  transition: none;
+}
+
+/* Hidden from the EYE, not from the accessible name. `display: none` would leave the rows
+   announcing themselves as an icon and a letter — "Projects" and the person's own name are
+   the only thing naming those links. Opacity keeps them in the tree the same way the old
+   1px clip did, and unlike the clip it can be watched on the way out.
+   Asymmetric on purpose: collapsing, they go at once and are gone before the rail is narrow
+   enough to crowd them; expanding, they wait 80ms for the room to exist and then arrive.
+   A label fading IN over a rail that is still 60px wide is a word landing on top of its own
+   icon. */
+.app-root.is-rail-collapsed .sb-label,
+.app-root.is-rail-collapsed .sb-user-text {
+  opacity: 0;
+  transition: opacity 0.10s ease;
+}
+/* The credits row does not merely fade — it leaves the flow. Fading it kept its height, so
+   the collapsed rail carried an invisible line of text above the avatar: a blank band with
+   a link in it, and on an account with no cycle to draw a bar for, that band was the whole
+   control. `visibility` rather than `display` so the row keeps its accessible text where
+   the link's own label does not already carry it, and so the change is one property rather
+   than a reflow of the block. The glyph fades in where it was. */
+.app-root.is-rail-collapsed .sb-credit-row {
+  position: absolute;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.10s ease;
+}
+.app-root.is-rail-collapsed .sb-credit-icon { opacity: 1; }
+/* AND THE BLOCK HAS TO BE TALL ENOUGH TO HOLD IT. Absolute placement keeps the glyph out of
+   the expanded row's layout, but it also means the glyph cannot give the block a height —
+   and with the row out of the flow and no bar to draw, what is left is two paddings: 18px,
+   against a 16px glyph starting 9px down. `overflow: hidden` then cut half of it off, and
+   the half that survived was the only part you could click.
+   9 + 16 + 9. Scoped with `:has()` so the bar case, which has no glyph and does not want the
+   extra height, is untouched. */
+.app-root.is-rail-collapsed .sb-credit:has(.sb-credit-icon) { min-height: 34px; }
+/* The words go, the ROW stays. Hiding the card outright was the first version of this and
+   it was wrong: that row is the only deliberate way into the plans anywhere in the app —
+   what is left otherwise is a button two clicks deep in Billing, and two links that appear
+   only once you are already out of credits. Collapsing the rail must not quietly take a
+   route away.
+   What survives is the bar, which still says what share is left, and the link under it. The
+   figures it can no longer print are in the row's accessible name, which it has carried
+   from the start. */
+/* The row keeps its padding — changing it was one more thing that moved on frame 1, and
+   the bar underneath is happy at any width. Its figures fade with the other words above. */
+
+/* ── MAIN ──────────────────────────────────────────────────── */
+.app-main {
+  min-width: 0;
+  min-height: 0;   /* allow the inner scroll area to shrink + scroll within 100vh */
+  display: flex; flex-direction: column;
+  /* Floats on the shell's ground rather than sharing an edge with the rail. The radius IS
+     the transition — a hairline between two full-bleed columns is a wall between two rooms,
+     where this is one room with an edge. `overflow: hidden` is what makes the corners cut
+     the content inside them, including the topbar's own background. */
+  margin: 8px 8px 8px 0;
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 14px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+/* Dunning warning, mounted above the outlet in every screen (PastDueBanner).
+   Accent-tinted through color-mix so it follows the theme's own accent rather than
+   pinning the light-theme carrot. flex-wrap means it degrades to a stacked block on a
+   narrow viewport without needing a breakpoint of its own. */
+.pastdue-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 10px 16px;
+  padding: 12px 36px;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+  flex-shrink: 0;   /* .app-main is a flex column: never let the warning be squeezed away */
+}
+.pastdue-bar-text { margin: 0; font-size: 13.5px; color: var(--fg-1); }
+.pastdue-bar-text strong { font-weight: 600; }
+.pastdue-bar-error { display: block; margin-top: 4px; font-size: 12.5px; color: var(--fg-2); }
+
+/* The sticky bar over a list. The rule under it is the app's own light rather than
+   --border, and the bar is the page's ground rather than a lighter plate on it. */
+.app-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 32px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  background: var(--bg);
+  position: sticky; top: 0; z-index: 10;
+}
+.app-title {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--fg-1);
+  line-height: 1.1;
+}
+.app-title .sub {
+  display: block;
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--fg-3);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.app-scroll {
+  flex: 1; min-height: 0;
+  overflow-y: auto;   /* the only content scroll container */
+}
+
+.app-content {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 32px;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 32px 36px 96px;
+}
+@media (max-width: 1100px) { .app-content { grid-template-columns: 1fr; } }
+
+.app-content-full {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 32px 36px 96px;
+}
+
+/* ── SECTION (settings group) ──────────────────────────────── */
+.field-label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  letter-spacing: normal;
+  font-weight: 600;
+  color: var(--fg-1);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.field-hint {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--fg-3);
+  letter-spacing: normal;
+}
+
+
+/* ── INPUT SURFACES (textarea, dropzone, link input) ───────── */
+/* `.input-surface` and the .input / .input-icon / .input-row set around it are gone: the
+   prompt box renders `.input-bare` and nothing else does. */
+/* Visually-hidden native file input (kept functional, triggered via button) */
+.hidden-input { display: none; }
+
+.input-foot {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 14px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: var(--fg-3);
+  letter-spacing: 0.06em;
+}
+
+/* Dropzone for voiceover upload */
+.dropzone {
+  background: var(--bg-card);
+  border: 1.5px dashed var(--border-strong);
+  border-radius: 14px;
+  padding: 36px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.dropzone:hover { border-color: var(--accent); background: var(--bg-muted); }
+.dropzone .dz-icon {
+  width: 40px; height: 40px;
+  margin: 0 auto 14px;
+  border-radius: 10px;
+  background: var(--bg-muted);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--fg-2);
+}
+.dropzone .dz-title { font-size: 15px; font-weight: 500; color: var(--fg-1); margin-bottom: 4px; }
+.dropzone .dz-sub { font-size: 12.5px; color: var(--fg-3); font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
+.dropzone .dz-pick { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+.dropzone.is-dragging { border-color: var(--accent); background: rgba(217,72,46,0.06); }
+
+/* Compact dropzone used inline below option grids (e.g. Music · Upload) */
+.dropzone-sm {
+  margin-top: 12px;
+  padding: 22px 20px;
+  border-radius: 10px;
+}
+.dropzone-sm .dz-icon { width: 32px; height: 32px; margin-bottom: 10px; }
+.dropzone-sm .dz-title { font-size: 13.5px; }
+.dropzone-sm .dz-sub { font-size: 11.5px; }
+
+/* Uploaded music file row */
+/* What .nv-input and .nv-tray become once a file is attached, so it is inside the glass
+   composer and has to be made of the same thing the dropzone it replaced was. */
+.music-file {
+  display: flex; align-items: center; gap: 14px;
+  /* Both places this appears — the composer's input block and the music tray — pad
+     themselves, and this row replaces the dropzone rather than following it, so there is
+     nothing above for a top margin to separate it from. It used to carry 12px, which
+     landed on top of the container's own padding and made the gap above it twice the gap
+     anywhere else. */
+  padding: 12px 16px;
+  background: rgba(255,255,255,0.028);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+}
+.music-file .mf-icon {
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-muted);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--fg-2);
+  flex-shrink: 0;
+}
+.music-file .mf-info { flex: 1; min-width: 0; }
+.music-file .mf-name {
+  font-size: 13.5px; font-weight: 500; color: var(--fg-1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.music-file .mf-meta {
+  font-size: 11px; color: var(--fg-3); margin-top: 3px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums; letter-spacing: 0.04em;
+}
+/* The glyph is drawn now, not typed: this was a literal U+00D7 text node at 18px, so it
+   rendered in the UA default face — a typeface used nowhere else — 14px from a drawn
+   upload glyph, and one row from the chip that draws the same affordance as KIcon close.
+   The accent went with it; on this screen the accent is Generate's. */
+.music-file .mf-remove {
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--fg-3);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.music-file .mf-remove:hover {
+  color: var(--fg-1);
+  background: rgba(255,255,255,0.06);
+}
+
+/* ── "SOON" MARKER ──────────────────────────────────────────
+   ONE not-yet marker for the whole app. It used to be four near-identical classes —
+   .opt-soon / .qs-soon / .pk-tag.is-soon / .sb-badge — at four sizes, three letter-spacings
+   and two radii, each shouting the same word in 9.5px caps with 0.18em tracking inside a
+   hard box. That is four emphasis devices on a label whose whole job is to say "not yet"
+   and then get out of the way. Sentence case, no border, a soft fill: legible as a state,
+   quiet enough not to compete with the control it is pinned to. */
+.soon-tag {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: var(--bg-muted);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--fg-3);
+  white-space: nowrap;
+}
+/* AudioDropzone's Replace button. Deleting ExtraToggleRow took the shared base block
+   with it (it was keyed `.extra-row .ex-action, .music-file .ex-action`) and left only
+   this hover — so the second most-used button on the screen rendered as a UA default
+   button, system font and outset border, in the middle of the glass panel.
+   The hover no longer spends the accent: on this bar the accent is Generate's. */
+.music-file .ex-action {
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--fg-2);
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 6px 11px;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.music-file .ex-action:hover {
+  color: var(--fg-1);
+  border-color: rgba(255,255,255,0.28);
+  background: rgba(255,255,255,0.06);
+}
+
+/* ── RIGHT RAIL (Summary + Generate) ────────────────────────��� */
+/* The sticky right rail went with the composer: settings are chips on a bar now, and
+   the price sits beside the button rather than in a column of its own. `.summary-card`
+   below is still live on the Finished and Generating screens. */
+.summary-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 22px;
+}
+.summary-card .sc-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fg-3);
+  margin-bottom: 14px;
+}
+.sc-rows {
+  display: flex; flex-direction: column;
+  border-top: 1px solid var(--border);
+}
+.sc-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--border);
+  font-size: 13px;
+}
+/* `.sc-total` and `.sc-row.is-muted` stood here. Both belonged to the Finished screen's
+   demo Output card — a 28px "3,100 CREDITS" total under six invented spec rows — and went
+   with it. */
+.sc-row .k { color: var(--fg-2); }
+.sc-row .v { font-family: var(--font-mono); color: var(--fg-1); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+
+/* ── BUTTONS (app-flavor) ──────────────────────────────────── */
+.btn-app {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 8px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+  white-space: nowrap;
+}
+.btn-app:not(:disabled):active { transform: translateY(1px); }
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.btn-primary:not(:disabled):hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-primary.is-large { padding: 14px 22px; font-size: 15px; font-weight: 600; }
+/* Small app-button size — for dense spots like the sidebar credit card */
+.btn-app.is-small { padding: 8px 12px; font-size: 12.5px; }
+
+/* NOTHING QUIET DRAWS AN OUTLINE AT REST.
+   The house rule, and this is the first control that meets it, so it is written here.
+   A control that is not the primary action states itself with a SURFACE — a fill a few
+   percent off the page — and takes more of one under the cursor. It does not also draw a
+   line around itself. A fill plus a line is the same claim made twice, and a screen of
+   boxed-in secondary controls reads as a form rather than as an app.
+   Borders survive where they are load-bearing: on inputs and selects, which have to look
+   like something you type into, and on panels, where the line is the edge of a surface
+   rather than the outline of a control.
+   `transparent` rather than removing the line: box-sizing is border-box, but these are
+   sized by their padding, so deleting it would take 2px off every one of them. */
+.btn-secondary {
+  /* RELATIVE to whatever it sits on, not an absolute colour. It was --bg-card (#1B1A17),
+     which is one value away from --surface-2 (#1C1A18) — fine on the page, invisible in a
+     sheet. With the border gone that stopped being a subtlety: "Download thumbnail", the
+     main action of the thumbnail sheet, would have read as a line of plain text in the
+     footer. A translucent fill lifts by the same amount off any ground. */
+  background: color-mix(in srgb, var(--fg-1) 7%, transparent);
+  color: var(--fg-1);
+  border-color: transparent;
+}
+.btn-secondary:not(:disabled):hover { background: color-mix(in srgb, var(--fg-1) 12%, transparent); }
+
+.btn-ghost-app {
+  background: transparent;
+  color: var(--fg-2);
+  border-color: transparent;
+}
+.btn-ghost-app:not(:disabled):hover { color: var(--fg-1); background: var(--bg-muted); }
+
+/* ── GENERATE — the send button a composer ends in ─────────
+   A cream disc with the page's own black in the arrow.
+
+   It was a three-blob radial gradient in oklab (#FF7E5F over #4F6FA0 over a
+   #D9482E→#B23922 ramp) under TWO layers of fractal-noise SVG, and it is the
+   button every generated interface builds: a small control lit from an imaginary
+   light source, in three colours, to say "press me". Nothing else on the screen
+   is any of those colours, which is the tell — the gradient was not carrying a
+   meaning, it was carrying importance.
+
+   Solid paper carries the same importance and states it once. On a #0E0C0B page
+   nothing else is #FAFAF7 at 36px round, so this is still the loudest thing in
+   the composer without pretending to be lit from somewhere.
+
+   36 rather than 40 because a circle at an equal box reads larger than a pill,
+   and because 36 is even, so centring the 16px glyph stays on whole pixels. */
+.generate-btn {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--fg-1);
+  color: var(--bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.2s ease, transform 0.1s ease;
+}
+.generate-btn svg { transition: transform 0.15s ease; }
+/* A halo, not a colour change: at #FAFAF7 there is nowhere brighter to go, and going
+   DARKER under the cursor is the gesture that means disabled. */
+.generate-btn:not(:disabled):hover { box-shadow: 0 0 0 4px rgba(250,250,247,0.10); }
+.generate-btn:not(:disabled):hover svg { transform: translateY(-1px); }
+.generate-btn:not(:disabled):active { transform: scale(0.94); }
+/* Its own disabled state rather than the shared `opacity: 0.5`, which on a solid disc
+   half-dissolves the control into the composer instead of turning it off. */
+.generate-btn:disabled {
+  background: var(--surface-3);
+  color: var(--fg-3);
+  cursor: default;
+}
+
+/* ── PRESET BAR (top of New Video) ─────────────────────────── */
+.preset-bar {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 8px;
+}
+/* The same chip the pickers filter with (.pp-chip), so the two filter rows in the app are
+   one control rather than two. It was a pill on an opaque --bg-card with a --border, and
+   its active state spent the accent on a border AND a tint — on a screen whose primary
+   action, "New video", is 40px above it wearing the same colour. */
+.preset-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 28px;
+  padding: 0 11px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--fg-2);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.preset-chip:hover { background: rgba(255,255,255,0.05); color: var(--fg-1); }
+/* Four labels with one of them filled — the same shape .kpr-tab and .kpr-seg already take
+   on the plans screen, which is what a set of chips ought to look like anyway: outlining
+   all four made the three you are NOT on as loud as the one you are. */
+.preset-chip.is-active {
+  color: var(--fg-1);
+  background: rgba(255,255,255,0.13);
+}
+.preset-chip .x { color: var(--fg-3); font-size: 11px; padding: 2px; }
+.preset-chip .x:hover { color: var(--accent); }
+
+/* ── PRESET SWITCHER (topbar trigger + popover) ────────────── */
+.preset-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ps-trigger {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 7px 10px 7px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--fg-1);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  max-width: 360px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.ps-trigger:hover { border-color: var(--border-strong); background: var(--bg-muted); }
+.preset-switch.is-open .ps-trigger {
+  border-color: var(--accent);
+  background: rgba(217,72,46,0.06);
+}
+.preset-switch.is-open .ps-caret { transform: rotate(180deg); }
+
+.ps-tag {
+  font-size: 11px;
+  color: var(--fg-3);
+}
+.ps-divider {
+  width: 1px; height: 14px;
+  background: var(--border);
+}
+.ps-name {
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  max-width: 200px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ps-trigger:not(.is-applied) .ps-name { color: var(--fg-3); font-weight: 400; }
+.ps-count {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  color: var(--fg-3);
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  border-radius: 6px;
+  letter-spacing: 0.04em;
+}
+.ps-caret { color: var(--fg-3); transition: transform 0.15s ease; }
+
+.ps-clear {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--fg-3);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.ps-clear:hover { color: var(--fg-1); background: var(--bg-card); }
+
+.ps-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  box-shadow: var(--shadow-float);
+  z-index: 50;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  animation: psPopIn 0.15s ease-out;
+}
+@keyframes psPopIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.ps-search {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--fg-3);
+}
+.ps-search input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--fg-1);
+  font-family: var(--font-sans);
+  font-size: 13px;
+}
+.ps-search input::placeholder { color: var(--fg-3); }
+.ps-search-x {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px;
+  border: none; background: var(--bg-card);
+  border-radius: 50%;
+  color: var(--fg-2);
+  cursor: pointer;
+}
+.ps-search-x:hover { color: var(--fg-1); background: var(--border); }
+
+.ps-list {
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 6px 6px 8px;
+}
+.ps-empty {
+  padding: 24px 16px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--fg-3);
+}
+.ps-empty span { color: var(--fg-2); }
+/* Compact inline note variant — shown above the built-in list when 0 saved */
+.ps-empty.is-note { padding: 14px 12px; margin-bottom: 4px; }
+
+.ps-item {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.ps-check {
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: 0 0 16px;
+  width: 16px; height: 16px;
+  color: var(--fg-1);
+}
+
+.ps-item-main {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.ps-item-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg-1);
+  letter-spacing: -0.005em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ps-item-desc {
+  font-size: 11.5px;
+  color: var(--fg-3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.ps-item-row {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  border-radius: 10px;
+}
+/* Same row as the voice and subtitle lists: a lighter surface on hover, and the current
+   one ringed in the accent rather than washed with a tint of it. The name was accent-
+   coloured too, which made the applied preset the second-brightest coloured thing in a
+   modal whose only real accent belongs on Save. */
+.ps-item-row:hover { background: rgba(255,255,255,0.055); }
+.ps-item-row.is-active {
+  background: rgba(255,255,255,0.06);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.ps-item-row.is-editing { background: rgba(255,255,255,0.06); }
+
+.ps-item-row .ps-item {
+  flex: 1;
+  background: transparent;
+  border-radius: 10px;
+}
+.ps-item-row:hover .ps-item,
+.ps-item-row.is-active .ps-item { background: transparent; }
+
+/* Always shown. They were display:none until hover or focus-within, and neither is
+   reachable on a touch screen: the only tappable thing in the row applies the preset and
+   closes the modal, so rename and delete did not exist on a phone — which is the entire
+   thing this modal is for. */
+.ps-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 6px;
+}
+
+.ps-act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--fg-3);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.ps-act:hover { color: var(--fg-1); background: rgba(255,255,255,0.12); }
+/* Delete keeps the accent on hover — the one place on this surface where colour is a
+   warning rather than a decoration. */
+.ps-act-danger:hover { color: var(--accent); background: rgba(217,72,46,0.14); }
+
+/* Rename inline form */
+.ps-rename {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+}
+.ps-rename input {
+  flex: 1;
+  background: var(--bg-deep);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: var(--fg-1);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  outline: none;
+}
+.ps-rename-ok,
+.ps-rename-cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: var(--bg-card);
+  color: var(--fg-2);
+}
+.ps-rename-ok { color: var(--accent); border-color: rgba(217,72,46,0.4); background: rgba(217,72,46,0.08); }
+.ps-rename-ok:hover { background: rgba(217,72,46,0.15); }
+.ps-rename-cancel:hover { color: var(--fg-1); }
+
+/* The inline save form, in the modal's footer. */
+/* The one part of this dialog still in the old vocabulary: an opaque --bg-card slab with
+   an accent border on a glass sheet, an accent-coloured glyph, and a Cancel set in 10.5px
+   tracked-out caps — the treatment taken off the group headings 150 lines above. The
+   identical operation renders 90px away in the strip with none of it. */
+.ps-save-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  padding: 3px 3px 3px 10px;
+  background: rgba(255,255,255,0.055);
+  border: 0;
+  border-radius: 10px;
+}
+.ps-save-form input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--fg-1);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  padding: 6px 4px;
+  min-width: 0;
+}
+.ps-save-form input::placeholder { color: var(--fg-3); }
+/* Sentence case, in the app's own face. It was 10.5px tracked-out caps — the treatment
+   taken off the group headings in this same dialog, for the reason that it is a treatment
+   for a label with nothing to say. */
+.ps-save-cancel {
+  background: transparent;
+  border: none;
+  color: var(--fg-3);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+.ps-save-cancel:hover { color: var(--fg-1); }
+/* Save keeps the accent: it is this dialog's primary action, the same way Generate is
+   the composer's. Everything around it gave the accent up. */
+.ps-save-go {
+  padding: 8px 14px;
+  background: var(--accent);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.ps-save-go:disabled { opacity: 0.4; cursor: default; }
+
+/* ── ICON UTILITY ─────────────��────────────────────────────── */
+.ico {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+/* Project card empty/loading placeholder (real-data wiring). `.pt-status.is-failed` used
+   to dim the text to --fg-3 and stop there, which left the failed badge as the only one of
+   the three with no plate under it — grey letters floating on the poster. The base
+   `.project-thumb .pt-status` rule dresses all three the same now. */
+.project-empty {
+  grid-column: 1 / -1;
+  padding: 28px 4px;
+  color: var(--fg-2);
+  font-size: 14px;
+}
+
+/* ── HOME ───────────────────────────────────────────────────── */
+/* Home is the composer now (src/screens/HomeScreen.tsx). What stood here — the grainy
+   greeting hero with the date and the credit sentence, the three-metric strip, the three
+   Quick-start cards and the recents header — went with the screen it decorated. The two
+   rules below outlived it because other screens use them. */
+/* Clickable caption-link: pointer + the brand's secondary→primary hover */
+.hover-link { cursor: pointer; transition: color 0.15s; color: var(--fg-3); text-decoration: none; }
+.hover-link:hover { color: var(--fg-1); }
+/* The inline "Top up" upsell sits on an accent-red error line — keep it accent
+   (the base .hover-link grey would mute it against that line). */
+.sc-error .hover-link { color: var(--accent); }
+.sc-error .hover-link:hover { color: var(--accent-hover); }
+/* ── PROJECTS LIST ─────────────────────────────────────────── */
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+@media (max-width: 900px) { .project-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .project-grid { grid-template-columns: 1fr; } }
+
+/* The poster IS the card. It used to sit on an opaque --bg-card plate inside a --border
+   box, lift 2px under the cursor and take an accent-mixed border with it — the same three
+   habits taken off the style-pack and thumbnail cards, on the screen where there are
+   sixty of them at once. */
+.project-card {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  text-decoration: none;
+  color: var(--fg-1);
+  display: block;
+  padding: 6px 6px 2px;
+}
+.project-card:hover {
+  background: rgba(255,255,255,0.045);
+  border-color: rgba(255,255,255,0.08);
+}
+.project-thumb {
+  border-radius: 10px;
+  aspect-ratio: 16/9;
+  /* The plate a card shows when there is no picture: still rendering, failed, or finished
+     without a thumbnail. What stood here was #0A0807 — DARKER than the page it sits on, so
+     an empty card was a hole, and the six decorative gradients painted over it were the
+     only thing giving the card an edge. Those are gone (see CardPoster), which leaves this
+     plate doing the job they were covering for: saying "a card is here, it has no picture".
+     --surface-2 and not --surface-1, which is the token this size of tile would normally
+     take. The card LIFTS on hover (rgba(255,255,255,0.045) over the page ≈ rgb(25,23,22)),
+     and --surface-1 is rgb(21,19,18) — so under the cursor the poster went darker than the
+     6px ring around it and read as recessed. --surface-2 stays above the hover ring; the
+     next step up, --surface-3, starts reading as an input well rather than a video area. */
+  background: var(--surface-2);
+  position: relative;
+  overflow: hidden;
+}
+/* Generated-thumbnail <img> or video-frame <video> poster — fills the thumb under the
+   grain/vignette/play overlays. Intentionally NO background: while the img is unloaded, or a
+   browser has loaded the video's metadata but not painted its #t= frame, the element stays
+   transparent and the plate above shows through — never a black box. (It used to say this
+   about a `.pt-poster` gradient underneath; that element is gone and .project-thumb's own
+   background is what shows now.) pointer-events:none so the card click still navigates. */
+.project-thumb .pt-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  z-index: 0;
+}
+.project-thumb .pt-dur {
+  position: absolute; bottom: 8px; right: 8px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 10.5px;
+  background: rgba(0,0,0,0.7);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 6px;
+  padding: 3px 6px;
+  color: var(--fg-1);
+}
+/* Hidden metadata-only <video> that reports a finished clip's REAL length for the
+   duration badge (CardDuration). Kept in layout so metadata loads, but invisible. */
+.project-thumb .pt-dur-probe {
+  position: absolute; width: 1px; height: 1px;
+  opacity: 0; pointer-events: none;
+}
+/* ONE plate for every state, matching the duration pill in the opposite corner: solid
+   dark behind a hairline. Not a translucent white fill — this badge can sit on a REAL
+   thumbnail, and a 10% white wash reads as whatever is behind it, so on a bright frame it
+   turned into light text on a light plate.
+   Rendering used to get its own accent plate instead (an 18% carrot fill, a 30% carrot
+   border, accent text). Two things wrong with that. Accent on this screen means the
+   primary action, and a status is not an action — so a Projects grid mid-batch lit up
+   half its cards in the colour that everywhere else means "press me", which reads as
+   alarm. And it made three treatments for one badge: a red card, a dark card and a
+   borderless grey one, side by side in a row, so the grid scanned as a chart legend
+   instead of a list of videos. The WORD says which state it is; the plate is furniture.
+   Sentence case, too — a three-word state does not need 0.18em of tracking and caps to be
+   read; that treatment is what the rest of this redesign took off. */
+.project-thumb .pt-status {
+  position: absolute; top: 8px; left: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 7px;
+  border-radius: 6px;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(0,0,0,0.7);
+  color: var(--fg-1);
+  border: 1px solid rgba(255,255,255,0.10);
+}
+/* The one place accent survives on a card, and the only thing on it that is literally
+   moving: 5px that mean "this render is being worked on right now". A queued render keeps
+   the 'rendering' bucket (chip + server filter) but not the dot — nothing is happening to
+   it yet — which is what `pulse` decides. The global prefers-reduced-motion rule in
+   effects.css stops the animation without stopping the dot. */
+.project-thumb .pt-status .live-dot {
+  width: 5px; height: 5px; border-radius: 50%; background: var(--accent);
+  animation: livePulse 1.6s ease-in-out infinite;
+}
+.project-thumb .pt-grain {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  opacity: 0.45; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='280' height='280'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.6 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-size: 280px 280px;
+}
+.project-thumb .pt-vig {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    radial-gradient(120% 95% at 50% -10%, transparent 42%, rgba(0,0,0,0.34) 100%),
+    linear-gradient(180deg, rgba(0,0,0,0.30), transparent 28%, transparent 60%, rgba(0,0,0,0.34));
+}
+.project-thumb .pt-status, .project-thumb .pt-dur { z-index: 3; }
+.project-thumb .pt-play {
+  position: absolute; inset: 0; z-index: 2;
+  display: grid; place-items: center;
+  opacity: 0; transition: opacity 0.15s ease;
+}
+.project-card:hover .pt-play { opacity: 1; }
+/* The same play control the voice rows use — a dark disc behind a hairline — not a
+   50px puck of near-white. That one was 1963px2 of rgba(250,250,247,0.94): the largest
+   bright object in the app, on every finished card, while the identical control 150 lines
+   up sits at --bg-muted. One function cannot have two answers that far apart.
+   It does need MORE than the list version, because it lies over a photograph rather than a
+   dark row: hence the blur behind it and the brighter hairline, which is what keeps it
+   legible on a pale still without turning it into a lamp. */
+.pt-play > span {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: rgba(10, 8, 7, 0.55);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.30);
+  color: var(--fg-1);
+  display: grid; place-items: center;
+  box-shadow: none;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.project-card:hover .pt-play > span { background: rgba(10, 8, 7, 0.72); }
+.project-card:hover .pt-play > span { transform: scale(1.06); }
+.pt-play svg { margin-left: 2px; }
+.project-meta {
+  padding: 14px 16px;
+}
+.project-meta .pm-title { font-size: 14.5px; font-weight: 500; color: var(--fg-1); line-height: 1.3; margin-bottom: 6px; }
+.project-meta .pm-sub {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: var(--fg-3);
+  letter-spacing: 0.06em;
+}
+
+/* ── OVERLAY / SHEET (Voice + Style Pack pickers) ──────────── */
+/* Every picker on the composer opens one of these, so the sheet had to move with the
+   panel: an opaque card over a frosted page reads as a different product the moment it
+   opens. Same glass, one step lighter, sitting on a deeper blur. */
+.overlay-backdrop {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(9, 7, 6, 0.62);
+  backdrop-filter: blur(14px) saturate(115%);
+  -webkit-backdrop-filter: blur(14px) saturate(115%);
+  animation: backdropIn 0.15s ease;
+}
+@keyframes backdropIn { from { opacity: 0; } to { opacity: 1; } }
+/* Project-card overflow (⋯) menu + the small deletion confirm modal. */
+.card-menu { position: absolute; top: 8px; right: 8px; z-index: 5; }
+.card-menu-btn {
+  display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px;
+  /* The dark plate is what lifts it off the poster; the hairline on top of it was a
+     scratch across the image. */
+  border-radius: var(--radius-pill); background: rgba(10, 8, 7, 0.55); border: 1px solid transparent;
+  color: var(--fg-1); cursor: pointer;
+}
+.card-menu-btn:hover { background: rgba(10, 8, 7, 0.78); }
+.card-menu-pop {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 41; min-width: 150px;
+  /* Floating vocabulary: the panel surface, a strong hairline, the float shadow. It was
+     --bg-card behind a 6% border and no shadow at all — which over a DARK poster left it
+     with no separation from the picture underneath in any of the three channels. */
+  background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: 10px;
+  box-shadow: var(--shadow-float); padding: 5px;
+}
+.card-menu-item {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; border: 0;
+  background: transparent; color: var(--fg-1); font: inherit; font-size: 13px; text-align: left;
+  border-radius: 6px; cursor: pointer;
+}
+.card-menu-item:hover { background: var(--bg-muted); }
+.card-menu-item.is-danger { color: rgb(217, 72, 46); }
+.card-menu-item.is-danger:hover { background: rgba(217, 72, 46, 0.12); }
+/* Sizes to its content, and the only cap is the viewport.
+   It used to also carry a flat 360px. Nothing chose that number against the content it
+   holds, and the render receipt's worst case — three charge lines, a total and the note —
+   needs 248px inside a 239px box: it overflowed by NINE pixels and grew a scrollbar for
+   them, on a confirmation short enough to read at a glance. Both dialogs that use this
+   size are bounded and short; 90vh is what actually needs guarding against. */
+.overlay-sheet.overlay-sheet-sm { width: min(440px, 92vw); max-width: 440px; height: auto; max-height: 90vh; }
+
+.overlay-sheet {
+  position: fixed;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(1100px, calc(100vw - 48px));
+  height: min(780px, calc(100vh - 48px));
+  height: min(780px, calc(100dvh - 48px));
+  background: var(--surface-2);
+  border: 1px solid rgba(255,255,255,0.11);
+  border-radius: 18px;
+  z-index: 101;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  box-shadow: var(--shadow-float);
+  animation: sheetIn 0.15s ease;
+}
+/* Gallery sheet — the style-pack picker. Six 16:9 screens have to fit without
+   scrolling, and 16:9 means every extra pixel of width costs 9/16 of a pixel in
+   height on three stacked rows: the size below is what makes both columns land
+   inside a 1400×900 window. */
+/* Compact sheet — single-column pickers (e.g. thumbnail style) */
+@keyframes sheetIn {
+  from { opacity: 0; transform: translate(-50%, -47%) scale(0.98); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* ── THE ANNOUNCEMENT TAKEOVER ─���────────────────────────────────
+   Borrows the sheet's whole vocabulary — the shared backdrop above, this surface, this
+   hairline, this shadow, this entrance — instead of inventing a look for itself. It is the
+   first thing somebody sees after an update, and a modal that arrives in a style the rest
+   of the app does not own reads as a popup from somewhere else.
+   It is NOT .overlay-sheet because that one is a fixed-height frame with a header bar and a
+   footer, built for content that scrolls inside it. This is a picture and two sentences: it
+   should be exactly as tall as they are. */
+.ann-sheet {
+  position: fixed;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(640px, calc(100vw - 32px));
+  /* No height at all — height: auto. The one cap is the viewport, and the picture is what
+     gives way if the window is short, because the sentence and the button are the message. */
+  max-height: calc(100dvh - 32px);
+  /* The sheet IS the scroll area on a short window, so it takes the contain that useDialog
+     asks every dialog for: without it, scrolling past the end of this chains out to the
+     page behind, which the lock has already frozen. */
+  overflow: auto; overscroll-behavior: contain;
+  background: var(--surface-2);
+  border: 1px solid rgba(255,255,255,0.11);
+  border-radius: 18px;
+  z-index: 101;
+  box-shadow: var(--shadow-float);
+  animation: sheetIn 0.15s ease;
+}
+/* The picture bleeds to three edges. Its own radius is inherited from the sheet's, minus
+   the 1px border, so the corner is one curve rather than two that nearly agree. */
+.ann-frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 17px 17px 0 0;
+  background: var(--surface-3);
+}
+.ann-media { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* Sits ON the picture, so it needs a plate to be legible against it — the same dark plate
+   the project cards' overflow button wears over a poster, for the same reason. Quiet on
+   purpose: it is the way out for somebody who does not want the tour, and it must not
+   compete with the one accented thing on the screen. */
+.ann-close {
+  position: absolute; top: 12px; right: 12px;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px;
+  border-radius: var(--radius-pill);
+  background: rgba(10, 8, 7, 0.55); border: 1px solid transparent;
+  color: var(--fg-1); cursor: pointer;
+  transition: background 0.15s;
+}
+.ann-close:hover { background: rgba(10, 8, 7, 0.78); }
+/* Measured with a real Tab: without this the X falls back to Chrome's own `1px auto
+   rgb(16,16,16)`, which on a dark plate over a dark picture is a black ring on black —
+   present in the DOM and invisible to the person it exists for. */
+.ann-close:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.ann-body { padding: 20px 22px 22px; }
+/* No picture — both the clip and its still failed to load — so the close button, which
+   normally sits on the image, is now over the title instead. This is the only case where
+   the two share a line, and it is the fallback path, which is exactly the path nobody looks
+   at until a customer does. */
+.ann-sheet:not(:has(.ann-frame)) .ann-body { padding-top: 50px; }
+.ann-title { margin: 0; font-size: 19px; font-weight: 600; color: var(--fg-1); letter-spacing: -0.01em; }
+/* The copy is a group with a gap rather than paragraphs carrying their own margins: the
+   announcement is prose, the number of paragraphs is whatever it needs, and stacked
+   top-margins would make the first gap (title to text) and the rest disagree. */
+.ann-copy { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.ann-text {
+  margin: 0;
+  font-size: 14px; line-height: 1.55; color: var(--fg-2);
+  text-wrap: pretty;
+}
+/* The single action, on the right, where every other dialog in the app puts the thing you
+   press to be done with it. */
+.ann-actions { display: flex; justify-content: flex-end; margin-top: 18px; }
+/* The sheet takes the mount focus (see useDialog) and shows nothing for it. That is not a
+   suppressed indicator: it carries tabindex -1, so Tab can never bring anybody here, and
+   the only thing this hides is a ring on the whole modal at the moment it appears. */
+.ann-sheet:focus, .ann-sheet:focus-visible { outline: none; }
+/* Which leaves this ring for what it is actually for: somebody who Tabbed to the button.
+   .btn-app has no focus rule of its own and falls back to Chrome's default double outline,
+   so it gets the app's own token here. */
+.ann-actions .btn-app:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+/* No rule under the head, and a smaller title. The sheet is glass now; the panels it
+   shares that glass with separate their parts with space rather than with lines, and a
+   22px display line over a 440px dialog is a headline on a receipt. */
+.overlay-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px;
+  padding: 16px 16px 6px 20px;
+  flex-shrink: 0;
+}
+.overlay-title {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--fg-1);
+  line-height: 1.2;
+}
+/* Borderless. A bordered tile around a close glyph draws the control twice — the box says
+   "button" and so does the mark inside it. */
+.overlay-close {
+  width: 28px; height: 28px; padding: 0;
+  border-radius: 10px;
+  background: transparent; border: 0;
+  color: var(--fg-3);
+  display: inline-grid; place-items: center;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.overlay-close:hover { background: rgba(255,255,255,0.09); color: var(--fg-1); }
+/* Header action cluster — optional buttons (e.g. icon copy) sit left of the close X.
+   Icon-copy grows to the close tile's 36px so the pair reads as one set. It also used to
+   take a border for that reason — which is backwards: .overlay-close has never had one, so
+   the border was the single thing making the two NOT match. */
+.overlay-head-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.overlay-head-actions .copy-icon-btn { width: 36px; height: 36px; }
+
+
+/* The sheet's two-column body and its left rail went with the pickers: every one of them
+   moved onto PickerPanel, and nothing renders .overlay-body or .overlay-rail any more. */
+/* The shell owns the SCROLL, not the inset. It briefly owned the padding too, and that
+   double-indented every caller that brings its own padded wrapper — .modal-body,
+   .upgrade-body, .fin-source-grid, .fin-script-full — which is all of them except the
+   render receipt this wrapper was added for. Padding the callers' own classes instead
+   would be the wrong end: .upgrade-body is shared with UpgradeModal, which draws its own
+   overlay and never passes through here. */
+.overlay-content {
+  flex: 1; min-height: 0;
+  overflow-y: auto;
+}
+/* ...so the receipt brings its own, the way every other caller does. */
+.cr-body { padding: 8px 20px 18px; }
+
+/* ── VOICE LIST ROWS ───────────────────────────────────────── */
+.voice-row {
+  position: relative;
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.voice-row:hover { background: var(--bg-muted); border-color: var(--border-strong); }
+.voice-row.is-selected { border-color: var(--accent); background: rgba(217,72,46,0.05); }
+.voice-row .vr-play {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--bg-muted);
+  border: 1px solid transparent;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--fg-1);
+  flex-shrink: 0;
+}
+.voice-row.is-selected .vr-play {
+  background: var(--accent); color: #fff;
+}
+/* No sample to preview. `pointer-events: none` lets the click through to the row's select
+   layer instead of swallowing it on a button that cannot act — a disabled button
+   dispatches no mouse events anyway, so its tooltip never showed either. */
+.voice-row .vr-play:disabled {
+  opacity: 0.4;
+  cursor: default;
+  pointer-events: none;
+}
+/* The select half of the row — a real button, reset to inherit the row's look. */
+.voice-row .vr-select {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  background: transparent; border: 0; padding: 0;
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+/* The row's hit area IS the select button. The row has to stay a plain div (a button
+   cannot nest the star and preview buttons), so the select half stretches an invisible
+   layer over the whole thing and the two icon buttons are lifted above it. Without this
+   the row showed cursor:pointer everywhere and only answered in the middle band: its own
+   12px of vertical padding — 24 of a 61px row — plus the 14px gaps and the side padding
+   all looked clickable and did nothing. */
+.voice-row .vr-select::before { content: ''; position: absolute; inset: 0; }
+/* Lifted above that layer, or the row's only action would be "select" and both of these
+   would become unreachable. */
+.voice-row .vr-fav, .voice-row .vr-play { position: relative; z-index: 1; }
+.voice-row .vr-info { flex: 1; min-width: 0; }
+.voice-row .vr-name { font-size: 14px; font-weight: 500; color: var(--fg-1); line-height: 1.2; }
+.voice-row .vr-meta {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: var(--fg-3);
+  margin-top: 4px;
+  letter-spacing: 0.04em;
+}
+/* Selected-row badge — an accent check at the end of the chosen voice. */
+.voice-row .vr-selected-tag {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 21px; height: 21px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  flex-shrink: 0;
+}
+
+/* Search */
+/* The sheet search row and its icon went with the pickers: they type into
+   .pp-search now. */
+
+/* Modal footer + shared empty / section-label bits (used across pickers) */
+/* ── MUSIC PACK PICKER ─────────────────────────────────────── */
+/* The seek bar belongs to the row that is playing, not to a strip at the bottom of the
+   panel. As a footer it was a second pause button for the same sound — one on the row,
+   one 400px below it — inside a bar that had its own border and its own darker fill, so
+   a panel made of one list had a second, differently-made object stuck under it.
+   In the row there is one control, and the bar is under the name of what it is playing. */
+.voice-row { flex-wrap: wrap; }
+.voice-row .vr-seek {
+  /* Its own line under the name. `position: relative` is not decoration: `.vr-select`
+     lays an invisible ::before over the whole row so anywhere on it selects, and without
+     a stacking context of its own the seek bar would be under that sheet — dragging it
+     would pick the pack. Same reason the play button and the star carry it. */
+  flex: 1 0 100%;
+  position: relative; z-index: 1;
+  padding: 2px 2px 4px 42px;
+}
+.voice-row .vr-seek .scrub-time { min-width: 30px; }
+
+/* Custom seek bar (Scrubber.tsx) — replaces the default <audio controls>. */
+.scrubber { display: flex; align-items: center; gap: 9px; }
+.scrub-time { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 11px; color: var(--fg-3); min-width: 32px; }
+.scrub-time.is-cur { color: var(--fg-2); }
+/* The track is a generous 18px-tall HIT area (was a 5px line — too fiddly to grab); the
+   visible rail is a thin bar centered inside it, so a click anywhere in the band seeks. */
+.scrub-track {
+  flex: 1; height: 18px;
+  position: relative;
+  display: flex; align-items: center;
+  cursor: pointer; touch-action: none;
+}
+.scrub-track.is-disabled { cursor: default; opacity: 0.5; }
+.scrub-track:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 99px; }
+.scrub-rail {
+  position: relative; width: 100%; height: 6px; border-radius: 99px;
+  background: rgba(255, 255, 255, 0.16);
+  transition: height 0.15s ease, background 0.15s ease;
+}
+.scrub-track:not(.is-disabled):hover .scrub-rail { height: 8px; background: rgba(255, 255, 255, 0.24); }
+.scrub-fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); border-radius: 99px; }
+.scrub-thumb {
+  position: absolute; top: 50%; transform: translate(-50%, -50%);
+  width: 14px; height: 14px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  transition: width 0.15s ease, height 0.15s ease;
+}
+.scrub-track:not(.is-disabled):hover .scrub-thumb,
+.scrub-track:not(.is-disabled):active .scrub-thumb { width: 16px; height: 16px; }
+
+/* The hairline stays here — a footer holds the actions, and the line is what says the
+   scrolling body has ended. It is the sheet's own light, not the old --border. */
+.overlay-foot {
+  padding: 12px 18px 16px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  display: flex; justify-content: space-between; align-items: center;
+  flex-shrink: 0;
+}
+.overlay-foot-actions { display: flex; gap: 8px; }
+.overlay-head .field-hint { margin-top: 6px; }
+/* ── STYLE PACK GALLERY ─────────────────────────────────────────
+   Two tiers side by side, all six packs on screen at once — the sheet is wide
+   enough for the comparison, so hiding four of them behind a filter only cost
+   the customer the comparison.
+
+   The tier belongs to the COLUMN. Premium is told by material, not by a badge
+   on every card: the same cards, set into a recessed case. Both columns carry
+   identical padding — the default one's is transparent — so the six rows line up
+   across the gap. */
+.pack-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+.pack-column {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+}
+/* Recessed, not tinted, and TRANSLUCENT. It was flat `--bg` (#0E0C0B), which is an
+   opaque slab inside a panel made of 34px-blurred glass — so half of the picker stopped
+   showing the material the picker is made of, right after the cards on top of it were
+   stripped to transparent for exactly that reason. Darkening the glass recesses the
+   column just as well and lets it through. */
+.pack-column.is-premium {
+  position: relative;
+  overflow: hidden;
+  background: rgba(0,0,0,0.22);
+  border-color: var(--border);
+}
+.pack-column.is-premium::before {
+  content: '';
+  position: absolute; left: 0; right: 0; top: 0; height: 1px;
+  background: rgba(255,255,255,0.14);
+}
+.pack-column-head {
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.pack-column-title {
+  margin: 0;
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  color: var(--fg-1);
+}
+/* What the premium tier adds per minute. Mono + tabular like every other figure on the
+   money path, and accent-tinted rather than accent-filled: it is a price, not an action. */
+.pack-column-price {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--fg-2);
+  background: rgba(255,255,255,0.09);
+  border: 0;
+  border-radius: 6px;
+  padding: 3px 7px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.pack-column-note {
+  margin: 5px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--fg-3);
+}
+.pack-stack { display: grid; gap: 12px; }
+
+.pack-card {
+  display: grid;
+  /* The screen takes the larger share — it is the thing being chosen. The split
+     is also what sets the row height (16:9 of the screen's width), and three of
+     these plus two headings have to land inside the sheet without scrolling:
+     much past 1.25fr and the last row falls off the bottom. */
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  position: relative;
+  /* element-agnostic: renders identically now that it's a <button> */
+  width: 100%; padding: 0; text-align: left; font: inherit; color: inherit;
+  -webkit-appearance: none; appearance: none;
+}
+.pack-card:hover { border-color: var(--border-strong); }
+/* Selection wears ONE accent hairline. The rule this screen holds to is that the accent
+   has a single JOB — and that job turns out to be two things, not one: what will spend
+   your credits, and which of these you have chosen. Painted only as a lighter surface it
+   was technically consistent and practically useless: on a card whose top two thirds are
+   a photograph, an 8% wash is not findable. So the accent comes back here, and stays
+   disciplined — a 1px border, no second ring, no fill wash, no glow. */
+.pack-card.is-selected {
+  border-color: var(--accent);
+  background: rgba(255,255,255,0.06);
+}
+/* The screen is the frame the pack actually renders — 16:9, whole, uncropped.
+   It used to be a fixed 132px band that cover-cropped the clip, which ate the
+   top and bottom fifth of every frame: exactly where these packs put a title. */
+.pack-screen {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #0A0807;
+}
+.pack-screen > img,
+.pack-screen > video {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* The clip lives ON TOP of the still and is invisible until it genuinely plays
+   (preload="none" — there is nothing decoded on mouseenter). On the way out it
+   is hidden before it is paused, so the card returns to its still instead of
+   freezing on whatever frame the pointer abandoned. */
+.pack-clip { opacity: 0; transition: opacity 0.15s ease; }
+.pack-clip.is-playing { opacity: 1; }
+.pack-frames { position: absolute; inset: 0; display: flex; }
+.pack-frames .frame { flex: 1; position: relative; overflow: hidden; }
+.pack-frames .frame + .frame { border-left: 1px solid var(--border); }
+.pack-frames .frame svg { width: 100%; height: 100%; display: block; }
+
+.pack-meta { min-width: 0; padding: 12px 16px 12px 0; }
+.pack-meta .pk-name {
+  font-family: var(--font-display);
+  font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em;
+  color: var(--fg-1); line-height: 1.25;
+}
+.pack-meta .pk-desc { font-size: 12px; color: var(--fg-3); margin-top: 5px; line-height: 1.45; }
+/* Placement only — the marker itself is .soon-tag. */
+.pack-meta .soon-tag { margin-top: 9px; }
+/* Coming-soon pack: inert, and dimmed in its TYPE — never in its footage.
+   Greying the screen would hide the one thing the card exists to show. */
+.pack-card.is-soon { cursor: not-allowed; }
+.pack-card.is-soon .pk-name { color: var(--fg-2); }
+.pack-card.is-soon:hover { border-color: var(--border); transform: none; box-shadow: none; }
+
+@media (max-width: 980px) {
+  .pack-columns { grid-template-columns: 1fr; gap: 18px; }
+}
+@media (max-width: 560px) {
+  .pack-card { grid-template-columns: 1fr; gap: 0; }
+  .pack-meta { padding: 12px 14px; }
+}
+
+
+/* Lock background scroll while any full-screen overlay/modal is mounted.
+   Covers Voice picker, Style Pack picker, and the Preset browse modal. */
+body:has(.overlay-backdrop),
+body:has(.ps-modal-overlay) {
+  overflow: hidden;
+}
+
+/* ── BROWSE MODAL — full preset library ─────────────────────── */
+/* The app has one backdrop; this had a second, four times less blurred, so opening the
+   preset manager dimmed the page differently from every other modal. */
+.ps-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(9, 7, 6, 0.62);
+  backdrop-filter: blur(14px) saturate(115%);
+  -webkit-backdrop-filter: blur(14px) saturate(115%);
+  display: flex; align-items: center; justify-content: center;
+  padding: 32px;
+  animation: psOverlayIn 0.15s ease-out;
+}
+@keyframes psOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+/* Glass, like the composer and every picker that hangs off it. It was an opaque
+   --bg-elev card with a --border-strong outline: a solid panel from the old sheet
+   vocabulary floating in front of a screen made of translucent ones. */
+.ps-modal {
+  width: min(560px, 100%);
+  max-height: min(680px, calc(100vh - 64px));
+  max-height: min(680px, calc(100dvh - 64px));
+  background: var(--surface-2);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 18px;
+  box-shadow: var(--shadow-float);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  animation: psModalIn 0.15s ease-out;
+}
+@keyframes psModalIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* No rule under the title. The panels this screen is made of separate their parts with
+   space, not with lines; a hairline across the top of a 560px sheet is the sheet chrome
+   they replaced. */
+.ps-modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  padding: 14px 14px 2px 18px;
+}
+.ps-modal-title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--fg-1);
+  line-height: 1.15;
+}
+/* Borderless, like the panel's own clear button. A bordered tile around a close glyph is
+   a control drawn twice: the box says "button" and so does the mark inside it. */
+.ps-modal-x {
+  display: inline-grid; place-items: center;
+  width: 26px; height: 26px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--fg-3);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.ps-modal-x:hover { color: var(--fg-1); background: rgba(255,255,255,0.09); }
+
+/* The search box is the picker's: a filled pill you type into, not a row with a rule
+   under it. */
+.ps-modal .ps-search {
+  height: 38px;
+  margin: 10px 10px 0;
+  padding: 0 12px;
+  gap: 9px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.055);
+  transition: background 0.15s ease;
+}
+.ps-modal .ps-search:focus-within { background: rgba(255,255,255,0.085); }
+.ps-modal .ps-search input { font-size: 14px; }
+.ps-modal .ps-search-x { background: transparent; }
+.ps-modal .ps-search-x:hover { background: rgba(255,255,255,0.12); }
+.ps-modal .ps-list {
+  max-height: none;
+  flex: 1;
+  padding: 8px;
+  display: flex; flex-direction: column; gap: 1px;
+}
+
+/* Transparent. An opaque --bg-deep bar across the bottom of a glass sheet is a second
+   material inside the first one. */
+.ps-modal-foot {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 10px;
+  padding: 10px 14px 14px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.ps-modal-save {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.ps-modal-save:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+/* Modal-scoped save form chrome */
+.ps-modal-foot .ps-save-form {
+  margin: 0;
+  flex: 1;
+}
+.ps-modal-foot .ps-save-go {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ps-modal-foot .ps-save-go:hover { background: var(--accent-hover); }
+.ps-modal-foot .ps-save-go:disabled { opacity: 0.45; cursor: default; }
+
+/* ── GENERATING SCREEN ─────────────────────────────────────── */
+/* What stood here: a 52px accent avatar, a three-segment bar with a shimmer keyframe, a
+   stage strip, and a whole chat — avatars in three sizes, message heads, timestamps and a
+   blinking "typing" caret. Thirty-six rules for a stepper computed from a clock and a
+   conversation nobody had. See GenProgressCard.
+   The screen is one block now: the state, the numbers, one line of reassurance. Narrow,
+   because two key/value rows do not want a 1000px column, and centred, because it is the
+   only thing on the page. */
+.gen-wrap { max-width: 1000px; }
+/* Centred in the viewport rather than pinned near the top: this is the only thing on the
+   page for the next half hour, and hanging it off the top edge left it looking abandoned
+   above a screen of nothing. The min-height is the scroll area less the top bar. */
+.gen-block {
+  max-width: 380px;
+  margin: 0 auto;
+  min-height: calc(100vh - 220px);
+  display: flex; flex-direction: column; justify-content: center; gap: 20px;
+}
+/* The subject of the page, at the size of one. It was 15px, which is the size of a form
+   label — right for a line in a card, wrong for the only sentence on a screen. */
+.gen-status {
+  display: flex; align-items: center; gap: 10px;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 26px; font-weight: 600; letter-spacing: -0.02em;
+  color: var(--fg-1);
+}
+/* Indeterminate, and deliberately so: no scale, no segments, no percentage — it reports
+   that the process is alive and nothing else, which is all a screen with no telemetry can
+   honestly report. (The bar this replaced filled one segment of a three-step track, which
+   claimed a stage nothing measured.) Absent from the queued state, where nothing is in
+   fact happening. */
+.gen-sweep {
+  height: 2px; border-radius: 2px;
+  background: rgba(255,255,255,0.06);
+  overflow: hidden; position: relative;
+  margin-top: -8px;
+}
+.gen-sweep::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: genSweep 2.4s ease-in-out infinite;
+}
+@keyframes genSweep {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
+}
+/* Reuses the card badge's dot: the same 5px of accent, meaning the same thing — something
+   is being worked on right now. The global prefers-reduced-motion rule stops the pulse. */
+.gen-status .live-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex-shrink: 0;
+  animation: livePulse 1.6s ease-in-out infinite;
+}
+/* The two facts use .sc-rows / .sc-row — the same key/value table the Finished screen's
+   Output uses, because it is the same kind of content. */
+.gen-block .sc-rows { border-top-color: var(--border); }
+.gen-note {
+  margin: 0;
+  font-size: 13px; line-height: 1.5; color: var(--fg-3);
+  text-wrap: pretty;
+}
+/* What the customer submitted. Clamped to two lines: a brief can run 2000 characters and
+   this is a status screen, not the composer. */
+/* The failure's correlation id — the one thing on that screen a customer is meant to carry
+   somewhere else, so it gets its own field and a copy button rather than sitting mid-sentence. */
+.gen-ref { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.gen-ref-row { display: flex; align-items: center; gap: 4px; }
+.gen-ref-id {
+  font-family: var(--font-mono);
+  font-size: 12.5px; letter-spacing: 0.02em; color: var(--fg-1);
+  word-break: break-all;
+}
+
+.gen-submitted { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.gen-submitted-text {
+  margin: 0;
+  font-size: 13.5px; line-height: 1.5; color: var(--fg-2);
+  text-wrap: pretty;
+}
+.gen-submitted-text.is-clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.gen-more {
+  padding: 0; border: 0; background: none;
+  font-family: var(--font-sans); font-size: 12.5px; color: var(--fg-3);
+  cursor: pointer; transition: color 0.15s ease;
+}
+.gen-more:hover { color: var(--fg-1); }
+
+
+/* ── FINISHED SCREEN ───────────────────────────────────────── */
+.fin-wrap { max-width: 1080px; }
+.app-topbar-actions { display: flex; gap: 8px; }
+.copy-btn { flex-shrink: 0; }
+/* Icon-only copy (field heads, modal headers): quiet ghost square; the icon swaps to an
+   accent check on success, so no text is needed for feedback. */
+.copy-icon-btn {
+  width: 28px; height: 28px; border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: none; color: var(--fg-3);
+  cursor: pointer; flex-shrink: 0;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.copy-icon-btn:hover { background: var(--bg-muted); color: var(--fg-1); }
+.copy-icon-btn.is-copied, .copy-icon-btn.is-copied:hover { color: var(--accent); background: transparent; }
+.btn-app.is-block { width: 100%; }
+
+/* Player + side info */
+.fin-player-grid { display: grid; grid-template-columns: 1fr 240px; gap: 24px; margin-bottom: 20px; align-items: start; container-type: inline-size; }
+/* Column one: the player and everything the render produced, in one stack. The sections
+   used to sit OUTSIDE this grid at the full 1080px, which put each Copy button ~390px
+   right of the text it copies, at an edge with nothing else on it. Here their right edge is
+   the video's right edge, and the whole page reads down a single left rule.
+   The gap is the section rhythm, so the distance from the player to the first label is the
+   same as between any two fields. */
+.fin-main {
+  display: flex; flex-direction: column; gap: 40px;
+  min-width: 0;
+}
+.fin-main > .fin-video { flex: none; }
+
+/* Compact side column — the player gets the width back. The column is CAPPED at the
+   player's exact height (video width = 100cqw − 240px column − 24px gap, × 9/16), so
+   it can never push the row taller than the video and open a gap under the player;
+   the Script teaser flexes to spend exactly the leftover space. max() keeps a sane
+   minimum when the math goes tiny on narrow layouts.
+   It is a SHORT rail beside a tall column now, not a half of a two-column row: the cap is
+   what stops it stretching to match everything the sections added below. */
+.fin-side {
+  display: flex; flex-direction: column; gap: 16px; min-width: 0;
+  max-height: max(220px, calc((100cqw - 264px) * 9 / 16));
+}
+.fin-side > .fin-output-card { flex-shrink: 0; }
+
+/* The rail is not a box. Both cards in it are .summary-card, which paints --bg-card behind
+   a border — and that was fine while the Thumbnail and Title/description panels sat below
+   with the same treatment. With those dissolved into sections, this became the only filled,
+   bordered object on the whole page, so it read as a bright plate someone forgot to convert.
+   Nothing to do with the token: --bg-card (#1B1A17) and --surface-2 (#1C1A18) are one point
+   apart. It was the last box on a page that had stopped having boxes.
+   Padding goes with the border: with no plate to hold content off, the label belongs on the
+   rail'''s own left edge and level with the top of the player beside it.
+   Scoped to .fin-side, because .summary-card still carries the Generating screen'''s cards. */
+.fin-side .summary-card {
+  background: transparent;
+  border-color: transparent;
+  border-radius: 0;
+  padding: 0;
+}
+.fin-output-card .sc-label { margin-bottom: 12px; }
+/* Script — the narration text the engine wrote next to the delivery file (panel absent
+   entirely on 404). A teaser card that FILLS the space left under the Output card down
+   to the player's bottom edge: the preview flexes, clips, and fades to transparent
+   (mask) + a "View full script" button; the whole text opens in the ModalSheet. */
+.fin-script-card { padding: 18px; display: flex; flex-direction: column; gap: 12px; flex: 1 1 auto; min-height: 0; }
+.fin-script-card > .sc-label, .fin-script-card > .btn-app { flex-shrink: 0; }
+/* The card's flex gap (12px) owns the rhythm — drop the label's own 14px bottom margin,
+   which would otherwise STACK with the gap into 26px of air before the text. */
+.fin-script-card > .sc-label { margin-bottom: 0; }
+.fin-script-preview {
+  flex: 1 1 auto; min-height: 0; overflow: hidden;
+  display: flex; flex-direction: column; gap: 10px;
+  -webkit-mask-image: linear-gradient(180deg, #000 40%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 40%, transparent 100%);
+}
+.fin-script-preview p { margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--fg-2); }
+/* Modal body — scrolls inside the sheet (flex-column shell), like .fin-source-grid. */
+.fin-script-full { padding: 20px 24px; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
+.fin-script-full p { margin: 0; font-size: 13.5px; line-height: 1.65; color: var(--fg-2); }
+.fin-video { position: relative; aspect-ratio: 16/9; background: #0A0807; border-radius: 14px; overflow: hidden; border: 1px solid var(--border); }
+/* The fake player (a gradient poster, a 72px white play disc and a static scrubber frozen
+   at 34%) and the thumbnail CARD around the showcase both stood here. The first belonged
+   to the demo view; the second was a bordered panel with its own header strip whose only
+   job was to hold one image. */
+
+/* What the render produced: thumbnail, title, description, tags, sources. Sections rather
+   than cards — the two panels that used to box them (each with a header strip, a divider
+   and a border, stacked at equal weight under the player) are the arrangement this
+   redesign takes off every screen it reaches. A label and 40px of air separate these just
+   as well and claim nothing about importance. */
+.fin-sections {
+  display: flex; flex-direction: column; gap: 40px;
+}
+
+/* Real-render showcase — the selected variant shown as Original / Phone / Computer
+   right on the page (ThumbnailShowcase; the fullscreen modal is gone). The device
+   cards and the variant strip reuse the YouTube-mockup styles below. */
+/* The variants themselves ARE the section: every one the engine made, at a size worth
+   looking at, in the player's column. They used to be 64px chips beside one selected
+   variant shown three ways — three thumbnails represented by one thumbnail's worth of
+   space, on the screen where the customer collects what they paid for.
+   auto-fill against a 236px track: three across in the 744px column, and a lone variant
+   comes out the same size as one of three rather than stretching to fill the row. */
+.fin-thumbs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(0, 236px));
+  gap: 12px;
+}
+.fin-thumb-tile {
+  padding: 0;
+  aspect-ratio: 16/9;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+.fin-thumb-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.fin-thumb-tile:hover { border-color: var(--border-strong); }
+
+/* Pager in the preview sheet's footer, sharing the right-hand cluster with Download.
+   Hairline squares, because the only filled control in this sheet should be the one that
+   hands over the file. The extra inset separates the two groups inside a shared 8px gap —
+   near enough to read as one control set, far enough not to look like a fourth button. */
+.fin-thumb-pager { display: flex; align-items: center; gap: 6px; }
+.overlay-foot-actions .fin-thumb-pager { margin-right: 6px; }
+.fin-thumb-pager .tp-count {
+  font-size: 12.5px; color: var(--fg-3);
+  font-variant-numeric: tabular-nums;
+  min-width: 52px; text-align: center;
+}
+.tp-arrow {
+  width: 30px; height: 30px; border-radius: 8px;
+  display: grid; place-items: center;
+  background: transparent; border: 1px solid transparent; color: var(--fg-2);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.tp-arrow:hover { color: var(--fg-1); background: var(--bg-muted); }
+
+/* The three YouTube views live in the sheet a tile opens, so the padding is back: it is a
+   modal body now, and it scrolls inside the sheet like .fin-source-grid. */
+.fin-yt-showcase {
+  display: flex; flex-direction: column; gap: 18px;
+  padding: 20px 24px; overflow-y: auto; min-height: 0;
+  container-type: inline-size;
+}
+/* Original — the raw image, the row's height reference (320px wide → 180px tall).
+   Sized so the WHOLE three-up row (320 + 226 + 215 + gaps ≈ 810px) fits the app's
+   content column even on smaller desktops — a wider trio wrapped the Computer card
+   onto a second line at common window widths. */
+.fin-yt-original { width: 320px; max-width: 100%; }
+.fin-yt-original img {
+  display: block; width: 100%; aspect-ratio: 16/9; object-fit: cover;
+  border-radius: 14px; border: 1px solid var(--border); background: #0A0807;
+}
+/* One visual row: the device cards keep YouTube's faithful 400px layout, then zoom
+   down so their TOTAL height (thumb + meta) lands at ≈ the original's 180px. With the
+   app's global border-box, a 400px card is 318px tall (phone) / 335px (computer, its
+   meta block is taller) at the usual 2-line title — hence 180/318 and 180/335. `zoom`
+   scales layout too, so the row reads as three equal-height tiles. */
+.fin-yt-showcase .ytm-phone { width: 400px; max-width: none; zoom: 0.566; }
+.fin-yt-showcase .ytd-pc { width: 400px; max-width: none; zoom: 0.537; }
+
+/* Title / Description / Tags — the label row above each value. */
+/* Label and its Copy button, together. This was space-between, which pushed the button to
+   the far end of the row — 387px past the end of the description it copies, with nothing in
+   between to associate them. A field-level copy button belongs beside the thing it names.
+   The row no longer stretches, so it cannot drift again if the column gets wider. */
+.fin-field-head {
+  /* flex + fit-content, NOT inline-flex. inline-flex makes this an INLINE-level box, so any
+     inline sibling flows beside it — which is what turned the Sources field into the single
+     run-on line "SourcesPowered by Pexels": its value is a <button>, and a button is
+     inline-block. The other three fields hid the bug because their values are <div>s.
+     fit-content is what keeps the row from stretching, so the Copy button cannot drift back
+     out to the far edge if the column ever gets wider. */
+  display: flex; align-items: center; gap: 4px;
+  width: fit-content;
+  margin-bottom: 8px;
+}
+.field-label.is-sm { font-size: 11.5px; }
+/* A measure, now that these are sections on a 1080px page rather than blocks inside a card.
+   The description ran the full column — about 130 characters a line, roughly twice what an
+   eye tracks back from without losing the row. The card it used to sit in did not fix that
+   either; it just made the line 50px shorter. */
+.fin-title-text {
+  font-family: var(--font-serif); font-size: 22px; font-weight: 600; color: var(--fg-1);
+  line-height: 1.25; text-wrap: balance; max-width: 40ch;
+}
+.fin-desc-text { color: var(--fg-2); font-size: 14.5px; line-height: 1.65; text-wrap: pretty; max-width: 68ch; }
+.fin-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+/* Tag pill — realizes the intended .opt-price look (was mis-scoped standalone) */
+.fin-tag { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 10.5px; letter-spacing: 0.08em; color: var(--fg-2); padding: 4px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; white-space: nowrap; }
+
+/* Sources — Pexels attribution. "Powered by Pexels" is the trigger: clicking it
+   opens a modal of creator chips (same language as .fin-tag); the pexels.com
+   attribution link + per-creator links live inside the modal. */
+.fin-source-row { border: 0; background: none; padding: 0; cursor: pointer; text-align: left; font: inherit; }
+.fin-source-brand { font-size: 13px; color: var(--fg-2); transition: color 0.15s ease; }
+.fin-source-brand b { color: var(--fg-1); font-weight: 500; }
+.fin-source-row:hover .fin-source-brand { color: var(--fg-1); }
+/* Modal body — scrolls inside the sheet (flex-column shell, overflow hidden). */
+.fin-source-grid {
+  display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start;
+  padding: 20px 24px; overflow-y: auto; min-height: 0;
+}
+.fin-source-chip {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums; font-size: 10.5px; letter-spacing: 0.08em; color: var(--fg-2);
+  padding: 4px 10px; background: color-mix(in srgb, var(--fg-1) 6%, transparent);
+  border: 1px solid transparent; border-radius: 6px;
+  white-space: nowrap; text-decoration: none;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.fin-source-chip:hover { color: var(--fg-1); background: color-mix(in srgb, var(--fg-1) 11%, transparent); }
+
+
+/* ── YOUTUBE THUMBNAIL MOCKUPS (inline showcase) ───────────────
+   Replicates YouTube's own chrome (Roboto, the duration badge, card
+   metrics) so the creator sees exactly how the thumbnail lands on phone
+   and desktop. Colours are YouTube's, not the app theme's — that's the
+   point. `.yt-ui` pins Roboto for everything inside a mockup. */
+.yt-devices {
+  display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; justify-content: center;
+  /* Fill the showcase edge-to-edge at ANY width: scale the whole design row — 320
+     (original) + 226.4 (phone card) + 214.8 (computer card) + 48 gaps = 809.2px — to
+     the container's inline size. tan(atan2(A, B)) is how CSS divides two lengths into
+     the plain number `zoom` needs. Clamped: below ~0.55 the row stops shrinking and
+     flex-wrap stacks the (still readable) tiles instead; capped at 1.5 on ultrawide,
+     where justify-content centers the row. */
+  zoom: clamp(0.55, tan(atan2(100cqw, 809.2px)), 1.5);
+}
+.yt-device { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.yt-device-label {
+  font-size: 11.5px; color: var(--fg-3);
+}
+.yt-ui { font-family: 'Roboto', 'Inter', system-ui, Arial, sans-serif; }
+
+/* Shared thumbnail + duration badge (YouTube exact) */
+.yt-thumb { position: relative; aspect-ratio: 16/9; border-radius: 14px; overflow: hidden; background: #000; }
+.yt-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.yt-badge {
+  position: absolute; right: 8px; bottom: 8px;
+  background: rgba(0,0,0,0.5); color: #fff;
+  font: 500 10px/10px 'Roboto', Arial, sans-serif;
+  padding: 3px 5px; border-radius: 6px;
+}
+/* Channel avatar (Kutly logomark on black) + 3-dot menu — shared by both cards */
+.yt-av { flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; background: #000; display: grid; place-items: center; }
+.yt-kebab { flex-shrink: 0; display: flex; flex-direction: column; padding: 6px 2px; }
+.yt-kebab i { border-radius: 50%; display: block; }
+
+/* Phone — YouTube mobile (dark theme, SHARP thumbnail corners) */
+.ytm-phone { width: 400px; max-width: 100%; background: #0f0f0f; border-radius: 18px; padding: 16px; border: 1px solid rgba(255,255,255,0.07); }
+.ytm-phone .yt-thumb { border-radius: 0; }
+.ytm-meta { display: flex; gap: 12px; margin-top: 12px; align-items: flex-start; }
+.ytm-meta .yt-av { border: 1px solid rgba(255,255,255,0.09); margin-top: 1px; }
+.ytm-text { flex: 1; min-width: 0; }
+.ytm-title { font-size: 16px; line-height: 22px; font-weight: 500; color: #f1f1f1; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ytm-byline { margin-top: 4px; font-size: 13px; line-height: 18px; color: #aaa; }
+.ytm-meta .yt-kebab { gap: 3.5px; margin-top: 1px; }
+.ytm-meta .yt-kebab i { width: 4px; height: 4px; background: #aaa; }
+
+/* Computer — YouTube desktop (light theme, rounded thumbnail) */
+.ytd-pc { width: 400px; max-width: 100%; background: #fff; border-radius: 14px; padding: 18px; }
+.ytd-meta { display: flex; gap: 12px; margin-top: 12px; align-items: flex-start; }
+.ytd-text { flex: 1; min-width: 0; }
+.ytd-title { font-size: 15px; line-height: 20px; font-weight: 500; color: #0f0f0f; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ytd-chan { font-size: 12px; line-height: 18px; color: #606060; margin-top: 6px; }
+.ytd-stats { font-size: 12px; line-height: 18px; color: #606060; }
+.ytd-meta .yt-kebab { gap: 3px; margin-top: -2px; }
+.ytd-meta .yt-kebab i { width: 3.5px; height: 3.5px; background: #606060; }
+
+/* Variant switcher — only when a render produced multiple variants */
+
+
+/* ── ACCOUNT SCREEN (migrated from the retired v2.css) ─────── */
+.k2-title-input {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  color: var(--fg-1);
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  padding: 4px 0 2px;
+  margin-bottom: 2px;
+}
+.k2-title-input::placeholder { color: var(--fg-3); }
+
+.k2-fld { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.k2-fld-lbl {
+  display: flex; align-items: baseline; gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  letter-spacing: normal;
+  font-weight: 600;
+  color: var(--fg-1);
+}
+.k2-fld-lbl .name { color: var(--fg-1); }
+.k2-fld-lbl .hint { margin-left: auto; letter-spacing: normal; color: var(--fg-3); font-size: 11.5px; font-weight: 400; }
+
+.k2-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s, color 0.15s;
+  white-space: nowrap;
+  min-height: 32px;
+}
+.k2-btn:active { transform: translateY(1px); }
+.k2-btn.is-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.k2-btn.is-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+/* The account screens have their own button class, parallel to .btn-app and near enough
+   identical to it that the no-outline pass went straight past them: every button on
+   Billing, Profile and Help still drew a line while the rest of the app had stopped.
+   Same rule, same values as .btn-secondary — a fill relative to whatever it sits on. */
+.k2-btn.is-secondary { background: color-mix(in srgb, var(--fg-1) 7%, transparent); color: var(--fg-1); }
+.k2-btn.is-secondary:hover { background: color-mix(in srgb, var(--fg-1) 12%, transparent); }
+.k2-btn.is-ghost { background: transparent; color: var(--fg-2); }
+.k2-btn.is-ghost:hover { color: var(--fg-1); background: var(--bg-muted); }
+
+.k2-account {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 36px;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px 28px 80px;
+}
+@media (max-width: 820px) { .k2-account { grid-template-columns: 1fr; gap: 18px; } }
+
+.k2-acc-nav { display: flex; flex-direction: column; gap: 1px; position: sticky; top: 16px; align-self: start; }
+/* The heading over the sub-nav said "ACCOUNT" in 9.5px caps at 0.22em — over a column
+   inside a screen whose topbar already reads Account, twice. */
+.k2-acc-nav .lbl { display: none; }
+.k2-acc-item {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 32px; padding: 7px 12px; border-radius: 6px;
+  font-size: 12.5px; line-height: 1.3; color: var(--fg-2);
+  cursor: pointer; position: relative;
+  /* element-agnostic: renders identically as <a> (nav) or <button> (sign out) */
+  border: 0; background: transparent; font-family: inherit;
+  text-align: left; text-decoration: none;
+  -webkit-appearance: none; appearance: none;
+}
+/* Same row as the left rail's: a lighter surface for the current one, and no accent —
+   it had a card fill, an accent bar down its left edge AND an accent-coloured glyph, three
+   devices for one bit of state. */
+.k2-acc-item:hover { color: var(--fg-1); background: rgba(255,255,255,0.05); }
+.k2-acc-item.is-active { color: var(--fg-1); background: rgba(255,255,255,0.09); }
+.k2-acc-item .ico { color: var(--fg-3); flex-shrink: 0; }
+.k2-acc-item:hover .ico, .k2-acc-item.is-active .ico { color: var(--fg-2); }
+.k2-acc-item.is-danger { color: var(--fg-3); margin-top: 12px; }
+.k2-acc-item.is-danger:hover { color: var(--accent-hover); }
+
+.k2-acc-body { min-width: 0; }
+/* Not the serif. Erode is spent once per screen at display size (see the composer's own
+   note); a 24px serif on each of five settings tabs turns the brand's second voice into a
+   theme. And the line under it was 10.5px mono at 0.08em — a caption set like a barcode. */
+.k2-acc-h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.015em; color: var(--fg-1); margin: 0 0 4px; line-height: 1.15; }
+.k2-acc-sub { font-size: 12.5px; color: var(--fg-3); margin: 0 0 22px; line-height: 1.5; }
+.k2-acc-section { margin-bottom: 28px; }
+.k2-acc-row {
+  display: grid; grid-template-columns: 180px 1fr; gap: 20px;
+  padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.05); align-items: center;
+}
+.k2-acc-row .k { font-size: 12.5px; color: var(--fg-2); }
+.k2-acc-row .v { font-size: 13px; color: var(--fg-1); }
+.k2-acc-row.tall { align-items: start; padding: 16px 0; }
+
+.k2-stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 22px; }
+@media (max-width: 800px) { .k2-stat-grid { grid-template-columns: 1fr 1fr; } }
+/* Fewer than four tiles: cap their width instead of stretching each one across a third of
+   the panel, which leaves a 22px number marooned in 260px of card. minmax(0, …) so they
+   still shrink on a phone rather than overflowing, and two-up below that so the labels
+   keep their line. */
+.k2-stat-grid.is-compact { grid-template-columns: repeat(3, minmax(0, 210px)); }
+@media (max-width: 620px) { .k2-stat-grid.is-compact { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Glass, and a label that is read rather than shouted. */
+.k2-stat { background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 14px 16px; }
+.k2-stat .l { font-size: 11.5px; color: var(--fg-3); margin-bottom: 8px; }
+.k2-stat .v { font-size: 21px; font-weight: 600; letter-spacing: -0.02em; color: var(--fg-1); line-height: 1; font-variant-numeric: tabular-nums; }
+.k2-stat .s { font-size: 11.5px; color: var(--fg-3); margin-top: 6px; }
+
+/* Account screen — inline styles lifted into owned classes */
+.k2-title-input.is-field { font-size: 14px; font-weight: 500; font-family: var(--font-sans); max-width: 320px; }
+.k2-btn.is-icon { padding: 6px 8px; min-height: 28px; }
+.k2-btn.is-wide { min-width: 88px; }
+.k2-stat .v.is-text { font-size: 18px; }
+/* Derived, not counted: an estimate keeps the tile but not the full contrast, so it never
+   reads as one of the measurements beside it. */
+.k2-stat .v.is-derived { color: var(--fg-2); }
+.k2-acc-row .v.is-mono { font-family: var(--font-mono); font-size: 12.5px; color: var(--fg-2); font-variant-numeric: tabular-nums; }
+.k2-fld.is-spaced { margin: 24px 0 12px; }
+
+.acc-projects-bar { margin-bottom: 22px; }
+.acc-load-more { text-align: center; margin-top: 28px; }
+.acc-btn-row { display: flex; gap: 8px; }
+.acc-btn-row.is-spaced { margin: 16px 0 22px; }
+.acc-h2 { font: 600 16px/1.2 var(--font-display); letter-spacing: -0.02em; margin: 0 0 12px; }
+.acc-strong { font-weight: 500; }
+.acc-id { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 11px; color: var(--fg-3); margin-left: 10px; letter-spacing: 0.06em; }
+
+/* Billing summary — balance and plan in one card, owned by BillingSummary. Balance stays
+   cream rather than accent-tinted: on this screen the carrot means "this is a button", and
+   spending it on a number leaves the actual action competing with a headline.
+   Three zones read left to right as what you have, what you are on, what you can do about
+   it, so the card fills its width instead of parking a small number at one end and a
+   button at the other with a lake between them. */
+.acc-summary {
+  display: flex; align-items: stretch;
+  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 14px; padding: 22px 24px; margin-bottom: 4px;
+}
+.acc-summary .l {
+  font-size: 11.5px; color: var(--fg-3);
+}
+.acc-summary-main {
+  display: flex; flex-direction: column; justify-content: center;
+  flex: 0 0 auto; padding-right: 30px;
+}
+.acc-summary-main .v {
+  font-family: var(--font-display); font-size: 40px; font-weight: 600;
+  letter-spacing: -0.03em; line-height: 1; color: var(--fg-1);
+  font-variant-numeric: tabular-nums; margin-top: 10px;
+}
+.acc-summary-side {
+  display: flex; flex-direction: column; justify-content: center;
+  flex: 1 1 auto; min-width: 0;
+  padding-left: 30px; border-left: 1px solid var(--border);
+}
+.acc-summary-side .n { font-size: 15px; font-weight: 500; color: var(--fg-1); margin-top: 9px; }
+.acc-summary-side .s { font-size: 12px; color: var(--fg-3); margin-top: 3px; }
+.acc-summary-action { display: flex; align-items: center; flex: 0 0 auto; padding-left: 20px; }
+/* Too narrow for three zones: stack them, and the divider becomes a horizontal rule. */
+@media (max-width: 620px) {
+  .acc-summary { flex-direction: column; align-items: stretch; }
+  .acc-summary-main { padding-right: 0; }
+  .acc-summary-side {
+    padding-left: 0; border-left: 0;
+    margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border);
+  }
+  .acc-summary-action { padding-left: 0; margin-top: 16px; }
+}
+
+/* Bordered list container (invoices, notifications) */
+.acc-list { background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; overflow: hidden; }
+
+/* Invoices */
+.acc-invoice { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.acc-invoice:last-child { border-bottom: 0; }
+.acc-invoice-desc { font-size: 13px; color: var(--fg-1); font-weight: 500; }
+.acc-invoice-date { font-family: var(--font-mono); font-size: 10.5px; color: var(--fg-3); margin-top: 4px; letter-spacing: 0.06em; font-variant-numeric: tabular-nums; }
+.acc-invoice-right { display: flex; align-items: center; gap: 12px; }
+.acc-invoice-amt { font-family: var(--font-mono); font-size: 12px; color: var(--fg-1); font-variant-numeric: tabular-nums; }
+
+/* The Notifications table and the Integrations list were styled here — a four-column grid
+   of per-event toggles, and a row per connected account with a green "Connected" pill. Both
+   screens had already been cut back to a one-line coming-soon note long before this, so the
+   rules had no markup left to reach; now the tabs are gone too. Removed rather than kept
+   warm: when either feature is actually built it will be designed against the surfaces this
+   app has now, not against a layout drawn for a version of it that never shipped. */
+.acc-note { margin-top: 18px; font-size: 12.5px; color: var(--fg-3); line-height: 1.5; }
+
+/* ── TOAST NOTIFICATIONS ─────────────────────────────────────
+   Fixed, bottom-centre, screen-reader announced (region/aria-live
+   live on the container in Toast.tsx). Sits above every overlay
+   (sheets z101) so confirmations are never hidden. */
+.toast-region {
+  position: fixed;
+  left: 50%;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: max-content;
+  max-width: min(440px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px 11px 16px;
+  /* --surface-3, not -2: this sits above every overlay, and the sheets it appears over
+     are themselves --surface-2. It was --bg-elev #161412 over --surface-2 #1C1A18 — the
+     floating thing DARKER than its ground, with the depth step running backwards. */
+  background: var(--surface-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-float);
+  color: var(--fg-1);
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.35;
+  max-width: 100%;
+  animation: toastIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.toast-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px; height: 20px;
+  border-radius: var(--radius-pill);
+  flex-shrink: 0;
+}
+.toast.is-success .toast-ico { color: #6BCF8F; background: rgba(74, 222, 128, 0.12); }
+.toast.is-error .toast-ico { color: var(--accent-hover); background: rgba(217, 72, 46, 0.14); }
+.toast-msg { min-width: 0; }
+.toast-x {
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  width: 24px; height: 24px;
+  flex-shrink: 0;
+  border: 0; border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--fg-3);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.toast-x:hover { color: var(--fg-1); background: var(--bg-muted); }
+
+/* Keep scroll momentum contained inside open dialogs — pairs with useDialog's
+   scroll-lock on .app-scroll so the page behind never chains/moves. */
+.overlay-content,
+.ps-list { overscroll-behavior: contain; }
+
+/* ── LOADING SKELETONS (project grid) ────────────────────────
+   Shimmering placeholders while the first list load is in flight (was the
+   plain "Loading…" empty-state text). The reduced-motion rule in effects.css
+   neutralises the shimmer to a static muted block. */
+.skeleton-box,
+.skeleton-line {
+  background: linear-gradient(90deg, var(--bg-muted) 25%, var(--bg-card) 37%, var(--bg-muted) 63%);
+  background-size: 400% 100%;
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
+  border-radius: 6px;
+}
+@keyframes skeletonShimmer {
+  from { background-position: 100% 50%; }
+  to   { background-position: 0 50%; }
+}
+/* The placeholder has to be the shape of the thing it is standing in for, or the grid pops
+   when the data lands. Two ways it had drifted: the card kept a visible border while a real
+   card's is transparent until hover, and `.skeleton-box` (later in the file, same
+   specificity) overrode the poster's 10px radius with its own 6px. */
+.project-card.is-skeleton {
+  cursor: default;
+  pointer-events: none;
+}
+.project-card.is-skeleton .project-thumb { border-radius: 10px; }
+.project-card.is-skeleton:hover { transform: none; background: transparent; border-color: transparent; }
+.project-card.is-skeleton .project-meta { padding: 12px 14px 14px; }
+.skeleton-line { height: 12px; margin-top: 8px; }
+.skeleton-line.is-sm { height: 10px; }
+
+/* ── UPGRADE MODALS (insufficient credits / concurrency cap) ──
+   Built on the overlay-sheet-sm primitive (RecentProjects delete) + useDialog. */
+.overlay-sheet.upgrade-sheet { max-height: min(90vh, 560px); }
+/* Height from the CONTENT. The base sheet sets a fixed `height`, which a body that scrolls
+   needs and a body of three fixed-size images does not — that one sat in 400px of its own
+   empty floor. Still capped, so a long body scrolls rather than running off the viewport. */
+.overlay-sheet.fit-sheet { height: auto; max-height: min(90vh, 780px); }
+.upgrade-body {
+  padding: 8px 20px 18px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  flex: 1;
+}
+.upgrade-lead {
+  margin: 0 0 16px;
+  font-size: 14px; line-height: 1.55; color: var(--fg-1);
+}
+.upgrade-lead strong { font-weight: 600; }
+/* The sheet is glass; a --bg-card panel inside it is a second material in the first one,
+   the same thing the preset manager's save form was. */
+.upgrade-summary {
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.04);
+  padding: 12px 16px;
+}
+.upgrade-row {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+  font-size: 13.5px; padding: 4px 0;
+}
+.upgrade-row .k { color: var(--fg-3); }
+.upgrade-row .v { color: var(--fg-1); font-weight: 500; font-variant-numeric: tabular-nums; }
+/* Per-tier comparison rows (concurrency modal): dim tier names, with the caller's current tier brightened. */
+.upgrade-tier-name { color: var(--fg-2); }
+.upgrade-tier-tag { margin-left: 8px; font-size: 11px; font-weight: 400; color: var(--fg-3); }
+.upgrade-row.is-current .upgrade-tier-name { color: var(--fg-1); font-weight: 600; }
+.upgrade-row.is-current .v { color: var(--fg-1); font-weight: 600; }
+.upgrade-fineprint {
+  margin-top: 10px; padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 11.5px; line-height: 1.5; color: var(--fg-3);
+}
+.upgrade-note { font-size: 14px; line-height: 1.55; color: var(--fg-1); }
+
+/* ── TOOLTIP (themed replacement for native title=) ──────────
+   Portal-rendered (escapes overflow:hidden), positioned in JS (Tooltip.tsx). */
+.tooltip-pop {
+  position: fixed;
+  z-index: 3000;
+  /* --surface-3 for the same reason as the toast: tooltips appear over picker panels
+     (the music rows' play buttons have one), and those are --surface-2. */
+  background: var(--surface-3);
+  color: var(--fg-1);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: var(--shadow-float);
+  animation: tooltipIn 0.15s ease;
+}
+.tooltip-pop.is-top { transform: translate(-50%, calc(-100% - 8px)); }
+.tooltip-pop.is-bottom { transform: translate(-50%, 8px); }
+@keyframes tooltipIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── THE DOCUMENTATION HINT ─────────────���───────────────────────
+   One sentence beside the rail's Documentation row, once, for the accounts that were here
+   before the documentation was. A callout and not a takeover: it points at the row it is
+   about and covers nothing. Fixed, for the reason useAnchor gives — the rail is a scroll
+   container and clips both axes — and on the tooltip's surface, since like a tooltip it
+   sits over whatever the page happens to be showing. */
+.rail-hint {
+  position: fixed;
+  /* Over the mobile drawer (70), which is where the row it points at lives on a phone — at
+     the popovers' 60 it sat behind the drawer, pointing at a row through an opaque panel.
+     Under modals (100), which are the only thing that should cover it. */
+  z-index: 80;
+  transform: translateY(-50%);        /* centred on the row it points at */
+  width: max-content; max-width: 250px;
+  padding: 10px 32px 10px 12px;       /* the right pad is the X's seat */
+  background: var(--surface-3);
+  color: var(--fg-1);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  box-shadow: var(--shadow-float);
+  font-size: 12.5px; line-height: 1.45;
+  animation: tooltipIn 0.15s ease;
+}
+.rail-hint-text { margin: 0; text-wrap: pretty; }
+/* The tail: a square turned 45°, wearing the same surface and hairline, on the side that
+   faces the row. */
+.rail-hint::before {
+  content: '';
+  position: absolute; left: -6px; top: 50%;
+  width: 10px; height: 10px;
+  transform: translateY(-50%) rotate(45deg);
+  background: var(--surface-3);
+  border-left: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--border-strong);
+}
+/* No room beside the row — the mobile drawer is 82vw wide — so it sits above, tail down,
+   aligned to the row's left edge. */
+.rail-hint.is-above { transform: translateY(calc(-100% - 10px)); }
+.rail-hint.is-above::before {
+  left: 18px; top: auto; bottom: -6px;
+  transform: rotate(-45deg);
+}
+.rail-hint-close {
+  position: absolute; top: 6px; right: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px;
+  border-radius: 6px;
+  background: none; border: 0;
+  color: var(--fg-3); cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.rail-hint-close:hover { background: rgba(255,255,255,0.06); color: var(--fg-1); }
+.rail-hint-close:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+
+/* ── CREDIT LEDGER (Account → Billing & usage) ───────────────── */
+.acc-ledger {
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.035);
+}
+.acc-ledger-head {
+  display: grid; grid-template-columns: 70px 1fr 110px;
+  padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,0.06);
+  font-size: 11.5px; color: var(--fg-3);
+}
+.acc-ledger-head .amt { text-align: right; }
+.acc-ledger-row {
+  display: grid; grid-template-columns: 70px 1fr 110px; gap: 10px;
+  align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border);
+}
+.acc-ledger-row:last-child { border-bottom: 0; }
+.acc-ledger-row .dt {
+  display: flex; flex-direction: column; gap: 1px;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.acc-ledger-row .dt .d { font-size: 12.5px; color: var(--fg-2); }
+.acc-ledger-row .dt .t { font-size: 11px; color: var(--fg-3); }
+.acc-ledger-row .act { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.acc-ledger-row .act .lbl { font-size: 13.5px; color: var(--fg-1); font-weight: 500; }
+.acc-ledger-row .act .vid {
+  font-size: 12px; color: var(--fg-3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.acc-ledger-row .amt {
+  text-align: right; font-size: 13.5px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.acc-ledger-row .amt.is-pos { color: #6BCF8F; }
+.acc-ledger-row .amt.is-neg { color: var(--fg-2); }
+
+/* ─────────────────────────────────────────────────────────────
+   Component-ownership primitives. Rules the React primitives in
+   src/components own (Button, TextLink, the boot splash) so screens
+   never hand-roll these cosmetics via inline style.
+   ───────────────────────────────────────────────────────────── */
+/* Disabled = dimmed + non-interactive, owned by Button (was inline opacity per screen). */
+.btn-app:disabled { opacity: 0.5; cursor: default; }
+/* Generate button "not ready yet" state: still disabled, but it explains what's
+   missing (see GenerateButton `hint`) instead of sitting as a silent grey block.
+   Overrides the 0.5 :disabled dim so the instruction stays legible (must come AFTER
+   that rule — equal specificity, source order wins), drops the CTA glow, and reads as
+   a calm waiting state rather than a live button. */
+/* Underlined TextLink variant + link-styled action button reset. */
+.hover-link.is-underline { text-decoration: underline; }
+button.hover-link { border: 0; background: none; padding: 0; font: inherit; text-align: inherit; }
+/* Full-viewport splash painted in the page colour while Clerk hydrates (RootLayout). */
+.boot-splash { min-height: 100dvh; background: var(--bg); }
+/* Accent-tinted status/error line in the generating progress card (owned by GenProgressCard). */
+.gen-error { color: var(--accent); }
+/* Inline accent error line (owned by InlineError — was inline style in NewVideoScreen). */
+.inline-error { color: var(--accent); font-size: 12px; line-height: 1.4; margin: 6px 0 10px; }
+/* A link inside an inline error stays accent (mirrors the old .sc-error .hover-link). */
+.inline-error .hover-link { color: var(--accent); }
+.inline-error .hover-link:hover { color: var(--accent-hover); }
+/* Finished player (owned by FinVideoState / the video element — were inline styles). */
+.fin-video-state {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  text-align: center; padding: 24px; color: var(--fg-2); font-size: 14px; line-height: 1.5;
+}
+.fin-video-el { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
+/* Standard padded body for a simple confirm ModalSheet (was an inline-styled div). */
+.modal-body { padding: 6px 20px 18px; color: var(--fg-1); font-size: 14px; line-height: 1.5; }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE SHELL (≤768px) — the 248px rail goes off-canvas
+   ═══════════════════════════════════════════════════════════════
+   The shell is a fixed `248px 1fr` grid, so on a 375px phone the content column
+   was 127px wide and nothing was usable. Below the breakpoint the grid collapses
+   to one column and the sidebar becomes a drawer, slid in by `.is-nav-open` on
+   .app-root (set in RootLayout). The Sidebar component itself is unchanged —
+   there is still exactly one navigation implementation.
+
+   Deliberately scoped to the SHELL. Screen interiors are still laid out for a wide
+   column; this makes the app navigable on a phone, not yet comfortable on one. */
+
+/* Desktop: the trigger does not exist. */
+.mobile-nav-toggle { display: none; }
+
+@media (max-width: 768px) {
+  .app-root { grid-template-columns: 1fr; }
+
+  /* Full bleed on a phone: an inset panel would spend 16px of a 375px screen on a frame,
+     and there is no rail beside it for the ground to read as. */
+  .app-main { margin: 0; border: 0; border-radius: 0; }
+  /* The desktop collapse has no meaning here — the drawer already is the rail's two states. */
+  .sb-collapse { display: none; }
+
+  .app-sidebar {
+    position: fixed; top: 0; left: 0;
+    /* Opaque, because off-canvas it slides OVER the content rather than sitting beside it.
+       The shell's ground is behind it on desktop; here there is nothing behind it but the
+       screen the drawer is covering. */
+    background: var(--bg-elev);
+    width: min(82vw, 288px);
+    z-index: 70;                       /* over the scrim (60), under modals (100) */
+    transform: translateX(-100%);
+    /* visibility, not just transform: an off-canvas rail is still in the tab order,
+       so without this a keyboard user tabs into a menu they cannot see. */
+    visibility: hidden;
+    transition: transform 0.15s ease, visibility 0.15s ease;
+  }
+  .app-root.is-nav-open .app-sidebar {
+    transform: none;
+    visibility: visible;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.45);
+  }
+
+  .mobile-nav-backdrop {
+    position: fixed; inset: 0; z-index: 60;
+    background: rgba(0, 0, 0, 0.5);
+  }
+
+  .mobile-nav-toggle {
+    display: inline-flex; align-items: center; justify-content: center;
+    position: fixed; top: 10px; left: 10px; z-index: 80;
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-elev);
+    color: var(--fg-1);
+    cursor: pointer;
+  }
+
+  /* Clear the fixed trigger. Both of these can sit at the very top of .app-main, and
+     either would otherwise run under the button. */
+  .app-topbar { padding-left: 60px; }
+  .pastdue-bar { padding-left: 60px; }
+
+  /* The trigger stays put when the drawer slides over it (it becomes the close button), so
+     the rail's first line has to start clear of it or the two overlap. Margin rather than
+     padding: the head is a fixed 34px box now, and padding would grow it instead of moving
+     it. */
+  .app-sidebar .sb-head { margin-left: 46px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-sidebar { transition: none; }
+  .app-root { transition: none; }
+  /* The swap still happens — it just happens at once. Someone who has asked for less motion
+     has not asked for a control that never appears. */
+  .sb-mark, .sb-collapse { transition: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   NEW VIDEO — COMPOSER
+   ═══════════════════════════════════════════════════════════════════
+   The screen this replaces was seven stacked sections of equally-weighted
+   bordered cards. Nothing about that arrangement said which part mattered,
+   and the arrangement itself is the house style of generated interfaces.
+
+   Here the prompt is the object and everything else is trim on it: modes on
+   its top edge, settings on its bottom edge, price and Generate at the end of
+   that same row. The rules that keep it from drifting back:
+
+     · ONE accent. The Generate button wears it. Selection is shown by a
+       lighter surface, never by colour — a bar where six controls glow has
+       no primary action.
+     · No caption under a value. If a chip needs a sentence to be understood,
+       the label on it is wrong.
+     · The bloom is the only ornament, and there is exactly one of it.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.nv-stage {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 56px 32px 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* ── Hero ───────────────────────────────────────────────────────────
+   Erode, at display size, once per screen. The serif is the brand's second
+   voice and it is spent here rather than sprinkled: a serif used for labels
+   and captions as well stops reading as a voice and starts reading as a
+   theme. Everything else on this screen is Inter. */
+.nv-hero { text-align: center; margin-bottom: 34px; }
+.nv-hero-name {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 46px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--fg-1);
+  margin: 0;
+}
+.nv-hero-rate {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--fg-3);
+  letter-spacing: 0.01em;
+}
+.nv-num { color: var(--fg-2); font-variant-numeric: tabular-nums; }
+
+/* The bloom is gone. It was a 900px accent-coloured radial behind the composer, and
+   three things were true of it at once: neither tool this redesign is measured against
+   has anything like it (Recraft's canvas is flat #f2f2f2, ElevenLabs' is flat), it was
+   the largest accent field on a screen whose own rule is that the accent belongs to the
+   button that spends credits, and once the panels stopped being glass it stopped lighting
+   anything — it was a halo around one box. `.nv-composer-wrap` keeps position:relative:
+   the pickers anchor to it. */
+.nv-composer-wrap { position: relative; }
+
+/* ── The panel ──────────────────────────────────────────────────────
+   Glass, not a card: it is translucent over the bloom and blurs what is behind
+   it, so the light bleeds through its edges instead of stopping at a border.
+   That relationship — panel lit BY the glow rather than sitting next to it — is
+   what the treatment is; an opaque card on a coloured background is a card on a
+   coloured background.
+
+   NOT overflow:hidden — the Music chip's menu opens upward out of the bar and
+   would be clipped by it. Corners are rounded on the parts that reach an edge. */
+.nv-composer {
+  position: relative;
+  /* NO z-index. It used to carry `z-index: 1`, left over from when a bloom sat behind this
+     panel and it had to paint over it — the bloom is gone (see the note below about the
+     travelling light), and what the 1 was still doing was creating a STACKING CONTEXT.
+     Everything inside the composer was sealed into it, so the × beside Thumbnails and
+     Subtitles could not be lifted over the picker's dismiss-scrim no matter what z-index it
+     was given: 101 inside a context worth 1 is still worth 1 outside it. Measured with
+     elementFromPoint on this stylesheet — with the 1, a click aimed at the × landed on the
+     scrim; without it, it lands on the ×, and a click on the topic box still lands on the
+     scrim, which is what keeps the panel dismissable by clicking past it. */
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.11);
+  background: var(--surface-1);
+  /* No shadow: the composer is not floating, it is the page's main object. Its own
+     surface step and hairline are what separate it. */
+}
+
+/* No travelling light on the composer, and nothing else moves on this screen either.
+   There was a pair of accent sparks running its border — our own idea, kept for a while
+   on the strength of a claim that turned out to be false: ElevenLabs' stylesheet defines
+   `@property --border-angle` and `@keyframes border`, but nothing on either saved page
+   uses them (0 `var(--animate-border)`, 0 conic-gradients). Neither reference animates
+   anything on its working screen; the only motion in either is a 0.15s state transition.
+   So the page is still at rest, and the one thing that moves is the thing you did. */
+
+/* ── Modes ──────────────────────────────────────────────────────────
+   Two tabs on the panel's own top edge, the way a tool names the input it is
+   pointed at. Three big icon cards used to sit here, one of which was a
+   permanent "Soon" and has been removed rather than dimmed. */
+.nv-modes {
+  display: flex;
+  gap: 2px;
+  padding: 10px 10px 0;
+}
+.nv-mode {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 13px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--fg-3);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.nv-mode:hover { color: var(--fg-2); }
+.nv-mode.is-on {
+  color: var(--fg-1);
+  background: color-mix(in srgb, var(--fg-1) 7%, transparent);
+}
+
+/* ── Input ──────────────────────────────────────────────────────────
+   PromptField in `bare` mode: the composer is already the surface, so the box
+   contributes no border, no background and no radius of its own. */
+/* One inset, owned here, for every state this block can be in.
+   It used to be `14px 20px 0`, with each state left to bring its own closing space — and
+   they each brought a different one: the idea field's counter row ended flush, the empty
+   dropzone gave itself 4px, and the FILLED audio row gave itself nothing at all. That last
+   one sat directly on .nv-bar's border-top, 26px of air above it and a hairline touching it
+   below. A container that leaves its own bottom edge to whatever happens to be inside it
+   gets a different answer for every child. */
+.nv-input { padding: 14px 20px; }
+.input-bare .textarea {
+  width: 100%;
+  min-height: 78px;
+  max-height: 400px;
+  overflow-y: auto;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  resize: none;
+  padding: 0;
+  color: var(--fg-1);
+  font-family: var(--font-sans);
+  /* 15/22, not 19. At 19 this was the largest type on the page — bigger than the body's own
+     16 and half again the 12-14 everything else in the composer is set at — so the moment
+     anything was typed it read as a heading rather than as an input. 15 keeps it the
+     largest thing INSIDE the composer, which is the hierarchy that was wanted, without
+     outranking the page. Integer line-height, so a wrapped line lands on whole pixels. */
+  font-size: 15px;
+  line-height: 22px;
+  letter-spacing: -0.01em;
+}
+/* The placeholder is the largest text inside the composer, because it is the one
+   instruction the screen gives. */
+.input-bare .textarea::placeholder { color: var(--fg-3); }
+/* The counter is a limit, not a readout: silent until the limit is close enough
+   to matter, so it is not a number competing with the price for attention. */
+.input-bare .input-foot {
+  display: flex; justify-content: flex-end;
+  padding: 6px 0 2px;
+  font-size: 11.5px;
+  color: var(--fg-3);
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.input-bare:focus-within .input-foot { opacity: 1; }
+/* The narration dropzone is INSIDE the glass panel, so it cannot keep the standalone
+   card's treatment: a 1.5px dashed line and a solid card fill read as a second, differently
+   made object dropped into the composer — and over the bloom that dashed line picks up the
+   warmth and looks like an error state. Inside, it is a lighter pane of the same glass. */
+.nv-input .dropzone,
+.nv-tray .dropzone {
+  /* No margin of its own — both containers now close their own box (.nv-input above,
+     .nv-tray with its 16px). This used to be 4px, which is what the empty state had
+     instead of the inset. */
+  margin: 0;
+  padding: 30px 24px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--surface-3);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.nv-input .dropzone:hover,
+.nv-tray .dropzone:hover {
+  background: rgba(255,255,255,0.055);
+  border-color: rgba(255,255,255,0.15);
+}
+.nv-input .dropzone.is-dragging,
+.nv-tray .dropzone.is-dragging {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+.nv-input .dropzone .dz-icon,
+.nv-tray .dropzone .dz-icon {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.07);
+}
+/* The constraints line is data, not a caption: same face as everything else on the panel,
+   no tracked-out pseudo-mono treatment. */
+.nv-input .dropzone .dz-sub,
+.nv-tray .dropzone .dz-sub {
+  font-family: var(--font-sans);
+  letter-spacing: 0;
+  font-size: 12px;
+}
+/* "choose a file" was the third accent-coloured thing on a screen that is meant to have
+   one. It is still obviously the click target — it is the only underlined words in it. */
+.nv-input .dropzone .dz-pick,
+.nv-tray .dropzone .dz-pick { color: var(--fg-1); }
+
+/* ── Bar ────────────────────────────────────────────────────────────
+   Every setting the render depends on, on one line, under the thing it
+   describes. It wraps rather than scrolls: a control that has to be scrolled
+   into view is a control nobody knows is there. */
+/* One row: settings on the left, what the click costs and the button on the right.
+   This was briefly two tiers, when the extras still printed which look they were set to
+   and a chip could run to ~250px. They print on/off now, the six take 644 of 909, and the
+   pair fits — two tiers left a hole on each side and read as two unrelated strips. */
+.nv-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 11px 12px 11px 13px;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 18px 18px;
+}
+/* One line is the whole point of a bar, so the chips are sized to fit six of them beside
+   the price and the button at the composer's width. They still wrap rather than scroll if
+   a value runs long — a control scrolled out of view is a control nobody knows is there. */
+/* The row does not wrap, ever. Six chips beside the price and the button do fit at the
+   composer's width — but only just, and "just" is not a layout: picking Crumpled Paper
+   over Noir is 70px, and the row would break under the cursor that picked it. So the
+   chips shrink instead and a value too long for its chip ellipses. Nothing scrolls out
+   of view (a control you have to scroll to is a control nobody knows is there) and
+   nothing moves. Below 640px the bar stacks — see the media query at the end. */
+.nv-chips {
+  display: flex; flex-wrap: nowrap; align-items: center;
+  gap: 4px; min-width: 0; flex: 1 1 auto;
+}
+/* Shrinking has a floor. Without one the values collapsed to "1.." and "(" and the row
+   still ran into the button — a chip squeezed past legibility is not a smaller control,
+   it is a broken one. Below the width where the floor stops fitting the bar stacks
+   instead (see the query at the end). */
+.nv-chips > * { min-width: 0; }
+.nv-chips .chip { min-width: 74px; }
+.nv-chips .chip-pair .chip { min-width: 0; }
+.nv-go { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex: none; }
+
+/* The figure the click will cost. Tabular, so it does not shift width as the
+   settings change, and quiet: it is a fact about the button, not a headline. */
+.nv-price { display: inline-flex; align-items: baseline; gap: 5px; white-space: nowrap; }
+.nv-price .nv-num { font-size: 15px; color: var(--fg-1); font-weight: 500; }
+.nv-price-qual, .nv-price-unit { font-size: 11.5px; color: var(--fg-3); }
+/* Out of reach. The accent is the colour that means credits on this screen, and this is the
+   figure the credits do not cover — so it marks the number itself rather than adding a line
+   beneath the composer to say the same thing in more words. Nothing moves and nothing
+   appears; the same slot changes colour. See the note at the call site. */
+.nv-price.is-short .nv-num,
+.nv-price.is-short .nv-price-qual,
+.nv-price.is-short .nv-price-unit { color: var(--accent); }
+.nv-hint { font-size: 12.5px; color: var(--fg-3); white-space: nowrap; }
+
+/* ── Chips ──────────────────────────────────────────────────────────
+   A chip always carries its value. The label is recessed so the eye lands on
+   what is set rather than on what the setting is called. */
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--fg-1) 4%, transparent);
+  color: var(--fg-1);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.chip:hover:not(.is-disabled) { background: color-mix(in srgb, var(--fg-1) 9%, transparent); }
+.chip:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+/* Open. It used to be a 10% fill with a line around it, one percent above the 9% hover —
+   the line was doing all the work of telling "open" from "under the cursor". The fill does
+   it instead, at a step you can actually see. Repeated with :hover because the hover rule
+   carries one more class and would otherwise drag an open chip back DOWN to 9%. */
+.chip.is-active,
+.chip.is-active:hover { background: color-mix(in srgb, var(--fg-1) 16%, transparent); }
+/* A chip whose picker is open sits ABOVE that picker's scrim.
+   The scrim is a transparent full-screen layer at z-index 100 whose only job is to catch
+   the click that dismisses the panel — and it was catching the click on the CHIP too. So
+   every chip took two clicks to close its own panel, and, worse, so did the × beside
+   Thumbnails and Subtitles: a button that turns an extra off, on a row that looks like it
+   takes one press, silently spending the first press on getting the scrim out of the way.
+   Raised, both the chip and its × are reachable while the panel is up. */
+.chip.is-active, .chip-pair:has(.chip.is-active) { position: relative; z-index: 101; }
+/* The only disabled chip on this bar is voiceover's Length, which the uploaded audio
+   decides. That is a stated fact, not a control someone broke, so it reads quiet rather
+   than dimmed-out: no fill, no hover, secondary text. */
+.chip.is-disabled { cursor: default; background: transparent; color: var(--fg-2); }
+.chip.is-disabled .chip-value { color: var(--fg-2); }
+.chip-ico { display: inline-flex; color: var(--fg-3); transition: color 0.15s ease; }
+.chip:hover .chip-ico, .chip.is-active .chip-ico, .chip.is-on .chip-ico { color: var(--fg-2); }
+.chip-label { color: var(--fg-3); font-weight: 400; white-space: nowrap; }
+.chip-value {
+  color: var(--fg-1);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chip .chip-value { font-variant-numeric: tabular-nums; }
+/* What an extra adds to the render. Recessed like the label — it is a fact about the
+   control, not a figure competing with the total over Generate. */
+.chip-price {
+  color: var(--fg-3);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.chip.is-on .chip-price { color: var(--fg-2); }
+
+/* A chip that can be turned off carries the × itself. Two buttons, styled as one pill:
+   a button cannot nest inside a button, and undo belongs where the state is shown — not
+   behind a click, in the footer of a panel, under a sentence. */
+.chip-pair { display: inline-flex; align-items: stretch; }
+.chip-pair .chip { border-top-right-radius: 0; border-bottom-right-radius: 0; padding-right: 6px; }
+.chip-clear {
+  display: inline-grid; place-items: center;
+  width: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-left: 0;
+  border-radius: 0 10px 10px 0;
+  background: color-mix(in srgb, var(--fg-1) 11%, transparent);
+  color: var(--fg-3);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.chip-clear:hover { background: color-mix(in srgb, var(--fg-1) 20%, transparent); color: var(--fg-1); }
+.chip-clear:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+/* Toggles read as filled-or-not. Off is a dashed outline: it is a control that
+   is available and unused, which is a different thing from a control that is
+   set to a value. */
+.chip.is-off {
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--border-strong);
+  color: var(--fg-2);
+}
+.chip.is-off .chip-label { color: var(--fg-2); }
+.chip.is-off:hover { background: color-mix(in srgb, var(--fg-1) 5%, transparent); color: var(--fg-1); }
+.chip.is-on { background: color-mix(in srgb, var(--fg-1) 11%, transparent); }
+.chip.is-on .chip-label { color: var(--fg-1); }
+
+
+/* ── Extras ─────────────────────────────────────────────────────────
+   The composer's last row: what the render produces besides the video. Quieter than the
+   bar above it — no top border of its own weight, a smaller lead-in, no price and no
+   button — because it is the row you can ignore and still get a video.
+
+   It exists because these two were never settings. Length, Voice, Style pack and Music
+   describe the video; thumbnails are separate image files and subtitles are burned on
+   top. Sitting among the settings they also had nowhere to say that one of them charges
+   for itself: the total simply moved from 160 to 170 and left the reader to work out
+   which of six chips had done it. */
+.nv-extras {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 6px;
+  padding: 9px 13px 11px;
+  border-top: 1px solid rgba(255,255,255,0.055);
+}
+
+/* ── Chip menu ──────────────────────────────────────────────────────
+   Drops DOWN from its chip. It used to open upward — the bar is at the foot of the
+   composer, so upward was the direction with room — but every other answer on this
+   screen appears below the control that asked the question, and two of the six opening
+   the other way is a rule the reader has to learn per control. It overlaps the extras
+   row while it is open, which is what a menu is for. */
+.chip-menu-wrap { position: relative; display: inline-flex; }
+.chip-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 40;
+  min-width: 224px;
+  padding: 5px;
+  border: 1px solid rgba(255,255,255,0.11);
+  border-radius: 14px;
+  background: var(--surface-2);
+  box-shadow: var(--shadow-float);
+}
+.cm-item {
+  display: flex; align-items: flex-start; gap: 9px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: background 0.15s ease;
+}
+.cm-item:hover { background: color-mix(in srgb, var(--fg-1) 7%, transparent); }
+.cm-item:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.cm-tick { display: inline-flex; width: 14px; flex: none; margin-top: 1px; color: var(--fg-1); }
+.cm-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.cm-label { font-size: 13px; font-weight: 500; color: var(--fg-2); line-height: 1.1; }
+.cm-item.is-selected .cm-label { color: var(--fg-1); }
+.cm-meta { font-size: 11.5px; color: var(--fg-3); line-height: 1.1; }
+/* The hint. Five pixels of accent, and the only accent on this screen that is not the
+   Generate button — which is why it is a dot and not a fill, a ring or a tinted row: those
+   would all read as a STATE, and the state slot in this list is the tick. */
+.cm-dot {
+  display: inline-block;
+  width: 5px; height: 5px;
+  margin-left: 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  vertical-align: 1.5px;
+}
+
+/* ── Tray ───────────────────────────────────────────────────────────
+   Sub-controls belonging to a chip, inside the panel: turning something on
+   never sends the eye somewhere else to finish the thought. */
+.nv-tray {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 14px 16px;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 18px 18px;
+}
+.nv-bar:has(+ .nv-tray) { border-radius: 0; }
+
+.nv-stage .inline-error { margin-top: 16px; }
+
+/* ── Preset strip ───────────────────────────────────────────────────
+   A preset is a name plus what it sets. That is a two-line card, and the set
+   of them is a row — not a column of headings, lists and buttons beside a form
+   that no longer has a column beside it. */
+.preset-strip { margin-top: 56px; }
+.pst-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.pst-title { font-size: 12.5px; font-weight: 500; color: var(--fg-2); }
+.pst-all {
+  border: 0; background: transparent; padding: 0;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  color: var(--fg-3);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.pst-all:hover { color: var(--fg-1); }
+
+/* Four columns, so a page is exactly three rows of them. `auto-fit` was fine for a strip
+   of three or four cards and wrong for a paged grid: the number of cells per page has to
+   be a number, and with auto-fit it was whatever the viewport happened to allow. */
+.pst-list {
+  list-style: none; margin: 0; padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+@media (max-width: 900px) { .pst-list { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .pst-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.pst-head-end { display: flex; align-items: center; gap: 14px; }
+/* Only rendered when there is more than one page — a pager that always reads 1 / 1 is a
+   control that has never once done anything. */
+.pst-pager { display: flex; align-items: center; gap: 2px; }
+.pst-page {
+  display: grid; place-items: center;
+  width: 22px; height: 22px; padding: 0;
+  border: 0; border-radius: 6px;
+  background: transparent;
+  color: var(--fg-3);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.pst-page:first-child svg { transform: rotate(90deg); }
+.pst-page:last-child svg { transform: rotate(-90deg); }
+.pst-page:hover:not(:disabled) { background: rgba(255,255,255,0.09); color: var(--fg-1); }
+.pst-page:disabled { opacity: 0.35; cursor: default; }
+.pst-page-of {
+  font-size: 11.5px;
+  color: var(--fg-3);
+  font-variant-numeric: tabular-nums;
+  min-width: 34px;
+  text-align: center;
+}
+
+/* Recent sits under the presets, in the same register: the same head row, the same gap
+   above it. Two blocks of the same kind, not a section and a feature. */
+/* ONE ROW, at every width. Home shows four recents through the shared 3-up grid, which
+   drew three cards and then a lone fourth hanging under them — two rows to show four
+   things, the second of them a third full. Four is the count that divides by every column
+   count this app uses, so the strip is a row here rather than a ragged block.
+   The cards come out ~222px wide on the 1000px stage; Projects is where they are browsed
+   at full size, this is the last-few strip above it. */
+.home-recent { margin-top: 46px; }
+.home-recent .project-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1100px) { .home-recent .project-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .home-recent .project-grid { grid-template-columns: 1fr; } }
+.pst-item {
+  display: flex; flex-direction: column; gap: 5px;
+  width: 100%; height: 100%;
+  padding: 13px 15px;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 14px;
+  background: var(--surface-1);
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.pst-item:hover { border-color: rgba(255,255,255,0.14); background: rgba(255,255,255,0.065); }
+.pst-item:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+/* Applied is shown by a lighter surface and a brighter name, not by the accent:
+   the accent on this screen means "this is the button that spends credits". */
+.pst-item.is-on { background: rgba(255,255,255,0.085); border-color: rgba(255,255,255,0.17); }
+/* The serif again, at text size, on the one thing here that is a NAME. */
+/* Not the serif. The hero's rule three sections up is "Erode, at display size, once per
+   screen — a serif used for labels as well stops reading as a voice and starts reading as
+   a theme", and this strip sits 90px under that hero setting every preset name in it.
+   The names are the largest text in the strip either way; they do not also need the
+   brand's other typeface to be found.
+   The italic went with it, and would have gone anyway: Erode is one variable file with no
+   italic in it (public/fonts/erode), so `font-style: italic` was a browser-sheared fake —
+   and the card already says "Changed since applied" in words. */
+.pst-name {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.15;
+  color: var(--fg-2);
+  letter-spacing: -0.005em;
+}
+.pst-item.is-on .pst-name { color: var(--fg-1); }
+.pst-desc {
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--fg-3);
+  font-variant-numeric: tabular-nums;
+}
+.pst-list li { position: relative; }
+.pst-detach {
+  position: absolute; top: 7px; right: 7px;
+  display: grid; place-items: center;
+  width: 20px; height: 20px; padding: 0;
+  border: 0; border-radius: 6px;
+  background: transparent;
+  color: var(--fg-3);
+  cursor: pointer;
+  /* Not hover-revealed. It renders on exactly one card — the applied one — and it is the
+     only way off a preset; at `opacity: 0` it was invisible on touch and still swallowed
+     the tap that landed on it, so on a phone the applied card had a dead corner. */
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.pst-detach:hover { background: rgba(255,255,255,0.12); color: var(--fg-1); }
+
+.pst-item.is-new { border-style: dashed; background: transparent; justify-content: center; }
+.pst-item.is-new:hover { background: color-mix(in srgb, var(--fg-1) 4%, transparent); }
+.pst-new-mark { display: inline-flex; color: var(--fg-3); }
+.pst-item.is-new:hover .pst-new-mark { color: var(--fg-1); }
+
+/* The reason the Save button is dead, on its own line UNDER the row.
+   It sat inside the row first, and the row is a non-wrapping flex line whose field is the
+   only thing that flexes — so a full-width fourth item took the width straight out of the
+   field and collapsed it to a stub. In the strip the row wraps for it; in the modal the
+   line lives outside the pill entirely. */
+.pst-name-taken {
+  flex-basis: 100%;
+  width: 100%;
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--fg-2);
+}
+.ps-modal-foot .pst-name-taken { margin: 0 auto 0 0; }
+
+/* The two-press delete. Words, not a second glyph: a bin that turns into another bin says
+   nothing about what the second press does. */
+.ps-confirm-q { font-size: 12px; color: var(--fg-2); margin-right: 2px; }
+.ps-act-word {
+  width: auto;
+  padding: 0 8px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+}
+.pst-save-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pst-save-form input {
+  flex: 1; min-width: 0;
+  height: 40px;
+  padding: 0 13px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--bg-card);
+  color: var(--fg-1);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  outline: 0;
+}
+.pst-save-form input:focus { border-color: var(--fg-3); }
+.pst-save-form input::placeholder { color: var(--fg-3); }
+.pst-save-cancel, .pst-save-go {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--fg-2);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.pst-save-cancel:hover { color: var(--fg-1); background: rgba(255,255,255,0.05); }
+.pst-save-go { background: var(--bg-muted); color: var(--fg-1); }
+.pst-save-go:disabled { opacity: 0.45; cursor: default; }
+
+/* ── Narrow ─────────────────────────────────────────────────────────
+   Under ~640px the bar stacks: chips take the full width and the price + button
+   move to their own row, so neither ever compresses the other. */
+@media (max-width: 860px) {
+  .nv-stage { padding: 40px 18px 80px; }
+  .nv-hero-name { font-size: 34px; }
+}
+/* Four chips, a price and a button stop sharing one line somewhere around here. Moving
+   the two extras off this row bought ~250px, and none of it moves this number: measured
+   at 1140px the bar is 826px wide (the sidebar takes 250 of the viewport and the stage
+   another 64 — a viewport breakpoint is not the composer's width), and the widest the
+   four chips get is 811 — "Crumpled Paper" against "Noir" alone is +61px, and a music
+   pack's name is another +60. The slack the extras freed is spent on the values that
+   were ellipsing at 1140 before, not on a lower breakpoint.
+   Stacking is the graceful end of shrinking, not a phone-only case. */
+@media (max-width: 1140px) {
+  .nv-bar { flex-direction: column; align-items: stretch; gap: 10px; }
+  .nv-go { justify-content: flex-end; }
+  /* Once the button has its own row, wrapping is free: nothing reflows around the chips,
+     so they wrap rather than shrink — a second line of whole words beats one line of
+     "Cal…" with an empty row underneath it. nowrap only ever mattered while the two
+     shared a line. */
+  .nv-chips { flex-wrap: wrap; }
+  .nv-chips .chip { min-width: 0; }
+}
+@media (max-width: 640px) {
+  /* The price goes left, the disc stays right. It used to `flex: 1` here, which turned a
+     36px circle into a full-width cream pill with one small arrow adrift in the middle of
+     it — a button growing to fill a row it had no content for. */
+  .nv-go { justify-content: space-between; }
+}
+
+/* ── The render receipt ─────────────────────────────────────────────
+   A statement of account, so it is set like one: labels left, the rate they are priced
+   at in the middle, credits right and tabular so the column aligns on the digit. The
+   total is the same row with a rule over it — a different-looking summary box would make
+   the sum read as a claim rather than as the arithmetic of the lines above it. */
+.cr-lines { display: flex; flex-direction: column; gap: 2px; }
+.cr-line {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: baseline;
+  gap: 14px;
+  padding: 9px 0;
+  font-size: 13.5px;
+}
+.cr-line-label { color: var(--fg-1); }
+.cr-line-rate { color: var(--fg-3); font-size: 12px; font-variant-numeric: tabular-nums; }
+.cr-line-credits {
+  grid-column: 3;
+  min-width: 62px;
+  text-align: right;
+  color: var(--fg-1);
+  font-variant-numeric: tabular-nums;
+}
+.cr-total {
+  margin-top: 4px;
+  padding-top: 13px;
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+  font-weight: 500;
+}
+/* The figure is what the dialog is FOR — it is the one thing a reader must not be able to
+   miss, and at 17px beside a 13.5px line item it was barely louder than the breakdown. */
+.cr-total .cr-line-credits { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
+.cr-qual { font-size: 12px; font-weight: 400; color: var(--fg-3); }
+/* The part of the deal a reader cannot infer from the numbers: what "held" means, and
+   that a short video costs less than the figure above. */
+.cr-note {
+  margin: 18px 0 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--fg-3);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   PICKER PANEL — the floating list every composer chip opens into
+   ═══════════════════════════════════════════════════════════════════
+   What this replaces: a 1100×780 sheet with a title, a paragraph under the
+   title explaining the sheet, a grid of bordered cards and a footer whose only
+   control was Cancel. Four pieces of chrome around one question.
+
+   The panel is the question. Search sits under the cursor, filters are one row
+   of chips, answers are a list. One hairline, a large radius and a deep blur,
+   so it reads as another pane of the composer's glass rather than a window laid
+   over the app.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* The panel hangs off the composer, so the scrim is a click-catcher and nothing else.
+   It used to dim and blur the whole app to ask which voice you wanted — the answer to a
+   question asked by a control at the bottom of a panel appeared in the middle of the
+   window with everything else taken away. The panel's own shadow is the separation. */
+/* A picker hangs off the composer: the answer appears where the question was clicked, at
+   the same width and against the same edge, so the panel reads as the control opening
+   rather than as a window pasted over the page.
+   ONE picker does not — the style packs, which the owner asked to come up as a card in the
+   middle of the screen. That is `.is-centred` below, and it is opt-in precisely so this
+   default keeps applying to the other four. */
+.picker-scrim {
+  position: fixed; inset: 0; z-index: 100;
+  background: transparent;
+}
+
+.picker-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  z-index: 101;
+  width: min(620px, 100%);
+  /* Fallback only — PickerPanel measures the real room below the composer and sets an
+     inline max-height on mount. This is what shows for the one frame before that lands. */
+  max-height: 60vh;
+  transform-origin: top left;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-float);
+  animation: panelDrop 0.15s cubic-bezier(0.2, 0.9, 0.35, 1);
+}
+@keyframes panelDrop {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── The one that is a card on the screen: the style packs ──────────────── */
+.picker-scrim.is-centred { background: rgba(6, 5, 4, 0.55); }
+.picker-panel.is-centred {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(1160px, calc(100vw - 48px));
+  max-height: min(84vh, 820px);
+  animation: panelIn 0.15s cubic-bezier(0.2, 0.9, 0.35, 1);
+}
+/* Every keyframe carries the centring translate. Without it the animation REPLACES the
+   rule's own transform for its whole duration, so the card drew with its top-left corner
+   on the centre point — down and to the right — and then jumped into place when the
+   animation ended. It read as the panel snapping twice, because it did.
+   Scale rather than a Y offset: a centred card grows from its middle, it does not drop. */
+@keyframes panelIn {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.985); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@media (max-width: 560px) {
+  .picker-panel.is-centred { width: calc(100vw - 24px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .picker-panel { animation: none; }
+}
+
+/* ── Search row ─────────────────────────────────────────────────── */
+.pp-top { display: flex; gap: 8px; padding: 10px 10px 0; }
+.pp-search {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: 9px;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.055);
+  color: var(--fg-3);
+  transition: background 0.15s ease;
+}
+.pp-search:focus-within { background: rgba(255,255,255,0.085); }
+.pp-search input {
+  flex: 1; min-width: 0;
+  border: 0; outline: 0; background: transparent;
+  color: var(--fg-1);
+  font-family: var(--font-sans);
+  font-size: 14px;
+}
+.pp-search input::placeholder { color: var(--fg-3); }
+.pp-search input::-webkit-search-cancel-button { display: none; }
+.pp-clear {
+  display: inline-grid; place-items: center;
+  width: 22px; height: 22px; padding: 0;
+  border: 0; border-radius: 6px;
+  background: transparent; color: var(--fg-3); cursor: pointer;
+}
+.pp-clear:hover { background: rgba(255,255,255,0.09); color: var(--fg-1); }
+
+
+/* ── Filter chips ───────────────────────────────────────────────── */
+.pp-chips {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 5px;
+  padding: 10px 12px 4px;
+}
+.pp-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--fg-2);
+  font-family: var(--font-sans);
+  font-size: 12px; font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.pp-chip:hover { background: rgba(255,255,255,0.05); color: var(--fg-1); }
+/* Active is a lighter surface, not the accent: the accent means "this spends credits". */
+.pp-chip.is-on {
+  background: rgba(255,255,255,0.13);
+  color: var(--fg-1);
+}
+.pp-chip svg, .pp-chip img { flex: none; }
+/* Groups are told apart by space, not by a rule — the same way every other part of every
+   other surface on this screen is. */
+.pp-chip.starts-group:not(:first-child) { margin-left: 14px; }
+.pp-chip-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-3);
+  font-size: 11px;
+}
+.pp-chip.is-on .pp-chip-count { color: var(--fg-2); }
+/* Only for a chip row that SETS something. A filter row needs no lead-in; a row of
+   typefaces reads as a filter until something in front of it says Font. */
+.pp-chips-lead { margin-right: 4px; font-size: 12px; color: var(--fg-3); }
+
+/* ── The list ───────────────────────────────────────────────────── */
+.pp-list {
+  flex: 1; min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.pp-list::-webkit-scrollbar { width: 10px; }
+.pp-list::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.10);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 99px;
+}
+.pp-empty { padding: 34px 16px; text-align: center; font-size: 13px; color: var(--fg-3); }
+
+/* ── Wide: a frame, not a list ──────────────────────────────────────
+   Style packs, thumbnail looks and subtitle styles cannot be told apart from a
+   line of text, so those panels carry the picture grid they always had. The
+   panel stops being a list and becomes the frame around one. */
+/* Wide takes the composer's full width — same left edge, same right edge, so it reads as
+   the panel opening downward rather than as a second window that happens to be near it. */
+.picker-panel.is-wide { width: 100%; }
+/* Both flags at once, spelled out. `.is-wide` and `.is-centred` are both (0,2,0), so which
+   one sets the width would come down to which is written later in the file — and source
+   order has now been the cause of this same bug twice. (0,3,0) does not care. */
+.picker-panel.is-wide.is-centred { width: min(1160px, calc(100vw - 48px)); }
+@media (max-width: 560px) {
+  .picker-panel.is-wide.is-centred { width: calc(100vw - 24px); }
+}
+.pp-list.is-frame { display: block; padding: 20px 22px 22px; }
+/* The status strip: what this costs and how much of a cap is spent, at the end of the
+   filter row. Above the list, because a price printed under the thing it prices is read
+   after the choosing — and above is where the picker this is modelled on keeps its
+   per-row credits. */
+.pp-status {
+  margin-left: auto;
+  display: inline-flex; align-items: center; gap: 10px;
+  font-size: 12px;
+  color: var(--fg-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+
+@media (max-width: 560px) {
+  /* Both variants, at matching specificity: `.picker-panel.is-wide` is (0,2,0) and a bare
+     `.picker-panel` is (0,1,0), so a rule written only for the latter loses to it here
+     regardless of order, and the wide panels kept the desktop width on a phone. */
+  .picker-panel,
+  .picker-panel.is-wide { width: calc(100vw - 20px); }
+}
+
+
+/* Voice rows inside the panel: the list owns the surface now, so the row keeps its
+   controls and drops its card. */
+.pp-list .voice-row {
+  background: transparent;
+  border: 0;
+  border-radius: 14px;
+  padding: 2px 4px 2px 2px;
+}
+.pp-list .voice-row:hover { background: rgba(255,255,255,0.055); }
+.pp-list .voice-row.is-selected {
+  background: rgba(255,255,255,0.06);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+/* One border, not the border-plus-::after-ring this had. Two accent outlines 1px apart
+   read as a halo, which is the "everything glows" the rest of the screen avoids. */
+.pp-list .vp-list { display: flex; flex-direction: column; gap: 1px; }
+/* Two columns once the panel has the composer's width. Thirty-nine voices down one
+   column is five screens of scrolling to reach the last of them; the row is a name, a
+   flag and two buttons, which fits 450px with room over. */
+.picker-panel.is-wide .vp-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px 12px;
+  align-content: start;
+}
+/* One column on a phone: at 390px a two-column row ellipsed the voice's name and broke
+   "Male · American" onto three lines, which costs more than the scrolling it saves. */
+@media (max-width: 700px) {
+  .picker-panel.is-wide .vp-list { grid-template-columns: 1fr; }
+}
+
+/* The picture pickers were the one surface this redesign did not convert. Inside a panel
+   made of 34px-blurred glass sat fourteen thumbnail cards and six style-pack cards on
+   opaque --bg-card with --border outlines — 936px of the exact uniform grid of equally
+   weighted bordered boxes the whole rebuild is against, and the panel's material was
+   invisible behind them. Same treatment the voice row got: the picture is the card, so it
+   does not need a box drawn round it as well.
+   They also lifted 1-2px under the cursor; nothing else on this screen moves. */
+.pp-list .ts-card,
+.pp-list .pack-card {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+.pp-list .ts-card:hover,
+.pp-list .pack-card:hover {
+  background: rgba(255,255,255,0.055);
+  border-color: rgba(255,255,255,0.10);
+  transform: none;
+  box-shadow: none;
+}
+/* The pick wears the accent, and it has to be stated HERE. Stripping the cards' borders
+   two rules up also killed `.pack-card.is-selected { border-color: var(--accent) }` 1857
+   lines above — same specificity, later wins — so the chosen pack differed from its
+   neighbours by 0.005 of alpha on the third of the card that is not photograph, while the
+   hovered one got a border the selected one did not: under the cursor a card looked more
+   chosen than the chosen one.
+
+   A ring rather than a border, so it cannot be cancelled by a border rule again, and so
+   the card does not move by a pixel when it is picked. OUTSET, though, where the text rows
+   wearing the same mark use an inset one — because these cards have no padding: the
+   picture goes to all four edges. An inset hairline therefore runs along the photograph's
+   own edge and then carries on around the text block below it, which reads as a border ON
+   the image rather than a state OF the card. Two pixels of the panel's own colour hold the
+   ring off the picture, so it frames the tile instead of touching it. */
+.pp-list .ts-card.is-selected,
+.pp-list .pack-card.is-selected {
+  background: rgba(255,255,255,0.05);
+  border-color: transparent;
+  box-shadow: 0 0 0 2px var(--surface-2), 0 0 0 4px var(--accent);
+  transform: none;
+}
+
+/* The voice rows still carried the old sheet's accent: a filled carrot circle on every
+   preview button, and another on the selected row's tick. Thirty-nine accent circles down
+   a list, next to a Generate button that is supposed to be the only one. Inside the panel
+   they are surfaces, not colour — the tick alone marks the pick. */
+.pp-list .vr-play {
+  background: rgba(255,255,255,0.08);
+  border-color: transparent;
+  color: var(--fg-2);
+}
+.pp-list .vr-play:hover:not(:disabled) { background: rgba(255,255,255,0.16); color: var(--fg-1); }
+.pp-list .vr-fav.is-on { color: var(--fg-1); }
+.pp-list .vr-selected-tag {
+  background: transparent;
+  border: 0;
+  color: var(--fg-1);
+}
+/* The selected row kept an accent play button — fill AND ring — through a more specific
+   rule. Both go: the tick is what marks the pick. */
+.pp-list .voice-row.is-selected .vr-play {
+  background: rgba(255,255,255,0.18);
+  border-color: transparent;
+  color: var(--fg-1);
+}

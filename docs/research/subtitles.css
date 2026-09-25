@@ -1,0 +1,200 @@
+/* Subtitle style picker — the animated preview inside each option card.
+ *
+ * Lives in its own file rather than app.css so the picker can be edited (or
+ * reverted) without touching the shared sheet.
+ *
+ * Every entrance below mirrors one the renderer performs; the timings are the
+ * preview's own, since a looping thumbnail has no speech to key off. */
+
+/* Satoshi is not on Google Fonts, so it is self-hosted — the same two faces the
+   renderer ships, copied from remotion-composer/public/fonts/satoshi/. Only the
+   `chunk` preset draws in it by default, but the font picker offers it against
+   every preset, so both weights are here.
+   Licence: Fontshare Free Font Licence, see the LICENSE file beside the woff2. */
+@font-face {
+  font-family: 'Satoshi';
+  src: url('/fonts/satoshi/Satoshi-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Satoshi';
+  src: url('/fonts/satoshi/Satoshi-Black.woff2') format('woff2');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* NO surface of its own. It used to sit on a grey slab — the argument being that the
+   sample "stands in for video", so it needed something video-coloured under it. What that
+   produced was ten identical light rounded rectangles stacked down a dark panel: the
+   brightest objects on the screen, brighter than the button that starts the render, and
+   the exact shape of a loading skeleton. It was never footage either — it was an invented
+   third surface, neither the video nor the panel.
+   A burned-in caption is drawn to survive whatever is behind it: white, heavy, outlined.
+   That is precisely why it can be shown on the panel's own dark glass and still read as a
+   caption. The row is the surface, the type is the sample, and the presets that really do
+   paint a plate behind their text (boxed, chunk) paint it here too — because in the render
+   they paint one. */
+/* Left-aligned, not centred. Centring is what a caption does in a video FRAME, and there
+   is no frame here any more — so all it did was put ten samples on ten different left
+   edges (measured: a 48px spread down one column), which is the ragged comparison the
+   rebuild's own docstring gives as its reason to exist. */
+.sub-preview {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  /* FIXED, not min-: `hype` is drawn at 30px and `clean` at 16, so without a common
+     height the list would be ten rows of ten heights. */
+  height: 46px;
+  padding: 4px 10px;
+  overflow: hidden;
+}
+
+.sub-preview-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0 0.28em;
+  text-align: center;
+  max-width: 100%;
+  /* The renderer never hyphenates a caption; neither should the sample. */
+  word-break: keep-all;
+}
+
+.sub-word {
+  display: inline-block;
+  transition: color 120ms linear;
+}
+
+/* The active word on `tiktok` scales up as well as recolouring. */
+.sub-word.is-popped {
+  animation: sub-word-pop 260ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+@keyframes sub-word-pop {
+  from { transform: scale(0.82); }
+  60%  { transform: scale(1.08); }
+  to   { transform: scale(1); }
+}
+
+/* ---- entrances, one per registry `entrance` value ------------------------ */
+
+.sub-enter-none { }
+
+.sub-enter-lift {
+  animation: sub-lift 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes sub-lift {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
+.sub-enter-pop {
+  animation: sub-pop 280ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+@keyframes sub-pop {
+  from { transform: scale(0.7);  opacity: 0; }
+  60%  { transform: scale(1.06); opacity: 1; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+.sub-enter-pop_rotate {
+  animation: sub-pop-rotate 300ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+@keyframes sub-pop-rotate {
+  from { transform: scale(0.7) rotate(-3deg);  opacity: 0; }
+  60%  { transform: scale(1.08) rotate(1.5deg); opacity: 1; }
+  to   { transform: scale(1) rotate(-3deg);     opacity: 1; }
+}
+
+.sub-enter-slide_up {
+  animation: sub-slide-up 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes sub-slide-up {
+  from { transform: translateY(14px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* ---- the list ------------------------------------------------------------ */
+
+/* Rows, not cards. As two grids — ten style cards over seven font cards — this panel was
+   seventeen boxes, and the font grid, given the same weight, read as a second decision of
+   equal size rather than as a modifier of the first (it is the chip row at the top now).
+   The row is the voice list's row: same rhythm, same hover, same accent ring on the pick,
+   because it is the same kind of choice. */
+.sub-list { display: flex; flex-direction: column; gap: 1px; }
+/* Two columns at the panel's full width: five rows, so all ten looks are on screen at
+   once and comparing the first with the last does not mean scrolling one of them away.
+   Row-major, which keeps the catalogue's own grouping — the four standing-text presets
+   fill the first two rows, the six word-timed ones the last three. */
+.picker-panel.is-wide .sub-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px 12px;
+  align-content: start;
+}
+/* Same as the voice list: below this the sample has no room to be a sample. */
+@media (max-width: 700px) {
+  .picker-panel.is-wide .sub-list { grid-template-columns: 1fr; }
+}
+
+/* The wrapper carries the hover/focus handlers; `display: contents` drops its box so the
+   BUTTON is the flex item and the 1px rhythm is between rows rather than between
+   wrappers. Pointer and focus events still reach it by bubbling. */
+.sub-row-hit { display: contents; }
+
+.sub-row {
+  display: flex; align-items: center; gap: 14px;
+  width: 100%;
+  padding: 5px 8px 5px 12px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--fg-1);
+  font-family: var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.sub-row:hover { background: rgba(255,255,255,0.055); }
+/* The pick wears the accent, and wears it once: an inset ring rather than a border, so
+   the row does not shift by a pixel when it is chosen. */
+.sub-row.is-selected {
+  background: rgba(255,255,255,0.06);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.sub-row:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+
+/* Fixed, not sized to the longest name: the samples have to start at the same x for the
+   column to be worth anything. */
+.sub-row-name {
+  flex: none; width: 84px;
+  display: flex; flex-direction: column; gap: 2px;
+  font-size: 13px; font-weight: 500;
+}
+/* What the still frame cannot say. Only the presets that move carry one. */
+.sub-row-motion { font-size: 11px; font-weight: 400; color: var(--fg-3); }
+/* The sample fills the rest of the row, so it reads as a strip of footage with a caption
+   on it rather than as a thumbnail parked beside a label. */
+.sub-row .sub-preview { flex: 1 1 auto; min-width: 0; }
+/* Colour is never the only signal for the pick. */
+.sub-row-tick {
+  flex: none;
+  display: inline-flex; justify-content: center;
+  width: 16px;
+  color: var(--fg-1);
+}
+
+/* Someone who has asked the OS for less motion gets the static first frame —
+   the component also stops its timer, so this only covers the entrances. */
+@media (prefers-reduced-motion: reduce) {
+  .sub-enter-lift,
+  .sub-enter-pop,
+  .sub-enter-pop_rotate,
+  .sub-enter-slide_up,
+  .sub-word.is-popped {
+    animation: none;
+  }
+}

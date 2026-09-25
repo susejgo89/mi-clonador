@@ -1,0 +1,20 @@
+=== VOICES ===
+
+[]
+
+=== STYLES/TEMPLATES ===
+
+[]
+
+=== LENGTHS ===
+
+[]
+
+=== PRICING ===
+
+[
+  "name:\"Starter\",sub:wn(\"starter\")",
+  "name:\"Creator\",sub:wn(\"creator\")",
+  "name:\"Studio\",sub:wn(\"studio\")",
+  "name:\"Enterprise\",sub:\"Custom\""
+]

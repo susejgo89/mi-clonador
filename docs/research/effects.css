@@ -1,0 +1,205 @@
+/* ─────────────────────────────────────────────────────────────
+   Kutly — Visual Effects
+   Buttons, cards, the focus ring, reduced motion, drag/selection.
+   Import AFTER colors_and_type.css.
+
+   The decorative kit that opened this file — `.grain-page`, `.grain-heavy`,
+   `.grain-soft`, `.grainy-hero` with its `.gh-bg`, and `.page-rails` — is gone.
+   ~5.5KB of it, most of that four `feTurbulence` SVGs inlined as data URIs and
+   parsed on every page load. The hero was the last one with a surface left: it
+   backed the Current plan card on the plans screen, under a scrim dark enough
+   to make its own text legible over it. The other four had already stopped
+   being used by anything at all, and were still being downloaded.
+   ───────────────────────────────────────────────────────────── */
+
+.section-rule {
+  position: relative;
+  border-top: 1px solid var(--border);
+}
+.section-rule::before,
+.section-rule::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  margin-left: -2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  border: 1px solid var(--border-dot);
+  background: transparent;
+  pointer-events: none;
+}
+.section-rule::before { left: var(--rail-gutter); }
+.section-rule::after  { left: calc(100% - var(--rail-gutter) - 1px); }
+
+/* ─── BUTTONS ───────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: var(--text-base);
+  line-height: 1;
+  padding: 9px 16px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  white-space: nowrap;
+}
+.btn:active { transform: translateY(1px); }
+
+.btn-dark {
+  background: #0A0A0A;
+  color: #FAFAF7;
+  border-color: #0A0A0A;
+}
+.btn-dark:hover { background: #1F1F1F; border-color: #1F1F1F; }
+
+.btn-light {
+  background: #FFFFFF;
+  color: #0A0A0A;
+  font-weight: 600;
+  padding: 14px 26px;
+}
+.btn-light:hover { transform: translateY(-1px); }
+.btn-light:active { transform: translateY(0); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--fg-1);
+  border-color: var(--border-strong);
+  padding: 13px 24px;
+}
+.btn-ghost:hover { border-color: rgba(10,10,10,0.32); background: rgba(10,10,10,0.025); }
+
+.btn-large { padding: 14px 26px; font-weight: 600; }
+
+/* ─── BADGES ─────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-wide);
+  color: var(--fg-2);
+  text-transform: uppercase;
+}
+.badge .live-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: livePulse 1.6s ease-in-out infinite;
+}
+@keyframes livePulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
+
+/* ─── CARDS ──────────────────────────────────────────────────── */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  position: relative;
+}
+.card-hover {
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.card-hover:hover {
+  transform: translateY(-1px);
+  border-color: rgba(0,0,0,0.18);
+}
+
+/* ─── HOVER LINKS ────────────────────────────────────────────── */
+.hover-link {
+  color: var(--fg-2);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+.hover-link:hover { color: var(--fg-1); }
+
+/* ─── REVEAL ─────────────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.reveal { animation: fadeUp 0.7s ease both; }
+
+/* ─── SCROLLBAR ──────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: #D5D1C8; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #B8B3A8; }
+
+/* ─── KEYBOARD FOCUS RING ─────────────────────────────────────
+   One brand ring on every interactive primitive — premium apps never
+   rely on the inconsistent UA outline (faint on a dark theme). */
+.btn:focus-visible,
+.btn-app:focus-visible,
+.generate-btn:focus-visible,
+.k2-btn:focus-visible,
+.k2-acc-item:focus-visible,
+.sb-item:focus-visible,
+.dropzone:focus-visible,
+.card-menu-btn:focus-visible,
+.card-menu-item:focus-visible,
+.overlay-close:focus-visible,
+.hover-link:focus-visible,
+/* Controls converted from <a onClick>/<div role=button> to real Link/button — they
+   became keyboard-focusable, so they get the same brand ring as everything else. */
+.project-card:focus-visible,
+.pack-card:focus-visible,
+.overlay-rail .rail-item:focus-visible,
+/* Voice picker: the star on every row and the play/pause beside it. */
+.vr-fav:focus-visible,
+.vr-play:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+/* The select button's hit area is the whole row (see .vr-select::before in app.css), so
+   the ring goes on the row. Drawn on the button itself it traced the inner text block
+   and left the real target — the full row — unmarked. */
+.voice-row:has(.vr-select:focus-visible) {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+/* Inset/segmented controls: hug the edge so the ring isn't clipped. */
+.nv-mode:focus-visible,
+/* Picker filter chips — same shape, same reason. */
+.pp-chip:focus-visible,
+.pp-clear:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* ─── REDUCED MOTION ──────────────────────────────────────────
+   Honor the OS "reduce motion" setting — neutralize all non-essential
+   animation/transition (incl. the infinite pulse/shimmer indicators). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ─── NATIVE FEEL: drag + selection ───────────────────────────
+   Decorative imagery inside clickable surfaces must not ghost-drag on press,
+   and UI chrome (nav, labels, badges, metrics, eyebrows) is not prose. */
+.pt-img, .sb-mark, .yt-thumb img {
+  -webkit-user-drag: none;
+  user-select: none;
+}
+.sb-item, .badge, .pt-status, .pt-dur,
+.field-label, .pm-sub, .vr-name, .vr-meta, .hero-eyebrow, .app-title .sub {
+  -webkit-user-select: none;
+  user-select: none;
+}
