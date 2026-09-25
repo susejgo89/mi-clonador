@@ -16,6 +16,8 @@ import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { VideoSettings, GeneratedVideo } from "@/types/kutly";
 import { VOICES, STYLE_PACKS, MUSIC_PACKS, INITIAL_VIDEOS } from "@/lib/data";
 
+const LOCAL_STORAGE_KEY = "kutly_saved_videos";
+
 export default function Home() {
   const [currentView, setCurrentView] = useState<"home" | "projects" | "pricing" | "account">("home");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -45,8 +47,39 @@ export default function Home() {
   const [generatingModalOpen, setGeneratingModalOpen] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<GeneratedVideo | null>(null);
 
-  // Videos collection
-  const [videos, setVideos] = useState<GeneratedVideo[]>(INITIAL_VIDEOS);
+  // Videos collection with localStorage persistence
+  const [videos, setVideos] = useState<GeneratedVideo[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (saved) {
+          const parsed: GeneratedVideo[] = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const savedIds = new Set(parsed.map((v) => v.id));
+            const nonDuplicateInitial = INITIAL_VIDEOS.filter((v) => !savedIds.has(v.id));
+            return [...parsed, ...nonDuplicateInitial];
+          }
+        }
+      } catch (e) {
+        console.warn("Could not load videos from localStorage:", e);
+      }
+    }
+    return INITIAL_VIDEOS;
+  });
+
+  const persistVideos = (updatedVideos: GeneratedVideo[]) => {
+    setVideos(updatedVideos);
+    try {
+      // Save metadata without huge blobs
+      const serializable = updatedVideos.map((v) => ({
+        ...v,
+        videoBlobUrl: v.videoBlobUrl?.startsWith("blob:") ? undefined : v.videoBlobUrl,
+      }));
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(serializable));
+    } catch (e) {
+      console.warn("Could not save videos to localStorage:", e);
+    }
+  };
 
   const handleAddCredits = (amount: number) => {
     setCredits((prev) => prev + amount);
@@ -57,8 +90,26 @@ export default function Home() {
   };
 
   const handleFinishGeneration = (newVideo: GeneratedVideo) => {
-    setVideos((prev) => [newVideo, ...prev]);
-    setCredits((prev) => Math.max(0, prev - (settings.duration === "8" ? 35 : settings.duration === "14" ? 60 : settings.duration === "20" ? 85 : 120)));
+    const updated = [newVideo, ...videos];
+    persistVideos(updated);
+    setCredits((prev) =>
+      Math.max(
+        0,
+        prev -
+          (settings.duration === "8"
+            ? 35
+            : settings.duration === "14"
+            ? 60
+            : settings.duration === "20"
+            ? 85
+            : 120)
+      )
+    );
+  };
+
+  const handleDeleteVideo = (videoId: string) => {
+    const updated = videos.filter((v) => v.id !== videoId);
+    persistVideos(updated);
   };
 
   return (
@@ -110,6 +161,7 @@ export default function Home() {
               onSelectVideo={(video) => {
                 setSelectedVideo(video);
               }}
+              onDeleteVideo={handleDeleteVideo}
             />
           )}
 

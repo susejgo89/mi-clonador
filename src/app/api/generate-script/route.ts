@@ -2,92 +2,243 @@ import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 
 export async function POST(req: NextRequest) {
-  try {
-    const { topic, durationMinutes = 14 } = await req.json();
+  let userTopic = "El Impacto de la Inteligencia Artificial";
+  let isSpanish = true;
 
-    if (!topic || typeof topic !== "string") {
-      return NextResponse.json({ error: "Topic is required" }, { status: 400 });
-    }
+  try {
+    const body = await req.json();
+    userTopic = (body.topic || "").trim() || userTopic;
+    const durationMinutes = body.durationMinutes || 14;
+
+    // Detect language
+    isSpanish = /[áéíóúñ¿¡]|(\b(el|la|los|las|de|en|por|que|un|una|del|al|historia|guerra|misterio|como|porque|quien|sobre|imperio|roma|caida|crisis|revolucion|siglo|año)\b)/i.test(
+      userTopic
+    );
 
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (apiKey) {
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `You are a world-class documentary scriptwriter and YouTube director.
-Create a structured documentary script for the topic: "${topic}".
-Duration target: ${durationMinutes} minutes.
-Format: Return a strict JSON object with:
+      try {
+        const ai = new GoogleGenAI({ apiKey });
+
+        const prompt = isSpanish
+          ? `Actúa como un galardonado director y guionista de documentales de YouTube (estilo DW Documental, VisualPolitik, History Channel).
+Tema: "${userTopic}"
+Duración objetivo: ${durationMinutes} minutos.
+
+Escribe un guión documental profundo, riguroso y cinematográfico en ESPAÑOL neutro.
+Incluye DATOS REALES específicos: fechas históricas, nombres de personajes clave, batallas o eventos cruciales, cifras y giros estratégicos.
+
+Estructura de respuesta: Devuelve ÚNICAMENTE un objeto JSON con este formato exacto:
 {
-  "title": "Compelling high-CTR title",
+  "title": "Título llamativo, periodístico y de alto impacto en español",
+  "summary": "Resumen de 2-3 oraciones que explica la tesis central y los descubrimientos de la investigación",
+  "language": "es",
+  "seoTags": ["tag1", "tag2", "tag3", "tag4", "tag5", "tag6"],
   "scenes": [
     {
       "id": 1,
-      "text": "Narrator voiceover script sentence...",
-      "visualKeyword": "search keyword for footage like: 'ancient warships' or 'cargo ship sea'",
-      "durationSeconds": 5
+      "text": "Narración introductoria con gancho y contexto histórico/científico real...",
+      "visualKeyword": "Término de búsqueda de pintura histórica o fotografía real (ej: Coliseo Romano legiones batalla)",
+      "durationSeconds": 6
+    },
+    {
+      "id": 2,
+      "text": "Narración sobre los antecedentes y las causas ocultas...",
+      "visualKeyword": "Término temático para buscar imagen histórica",
+      "durationSeconds": 6
+    },
+    {
+      "id": 3,
+      "text": "Narración del punto de inflexión, conflicto clave o momento determinante con fechas y nombres...",
+      "visualKeyword": "Término temático para buscar imagen histórica",
+      "durationSeconds": 6
+    },
+    {
+      "id": 4,
+      "text": "Narración de las consecuencias geopolíticas o impacto a gran escala...",
+      "visualKeyword": "Término temático para buscar imagen histórica",
+      "durationSeconds": 6
+    },
+    {
+      "id": 5,
+      "text": "Narración de conclusión y lección histórica para el mundo contemporáneo...",
+      "visualKeyword": "Término temático para buscar imagen histórica",
+      "durationSeconds": 6
     }
-  ],
-  "seoTags": ["tag1", "tag2", "tag3", "tag4", "tag5"],
-  "summary": "2-sentence summary of the documentary"
-}
-Generate 4-6 detailed scenes that tell a gripping story with a hook, conflict, and insight. Return ONLY raw JSON without markdown codeblocks.`;
+  ]
+}`
+          : `You are a world-class documentary director and YouTube scriptwriter (style of DW Documentary, Vox, RealLifeLore).
+Topic: "${userTopic}"
+Target duration: ${durationMinutes} minutes.
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-      });
+Write a deeply factual, captivating, and well-researched documentary script in ENGLISH.
+Include REAL FACTS: historical dates, key figures, turning points, statistics, and strategic impacts.
 
-      const text = response.text || "";
-      const cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
-      const parsed = JSON.parse(cleaned);
-      return NextResponse.json(parsed);
+Return ONLY a valid JSON object matching this format:
+{
+  "title": "High-CTR, investigative documentary title",
+  "summary": "2-3 sentence overview explaining the central investigation and key takeaways",
+  "language": "en",
+  "seoTags": ["tag1", "tag2", "tag3", "tag4", "tag5", "tag6"],
+  "scenes": [
+    {
+      "id": 1,
+      "text": "Opening hook narration introducing the core mystery or turning point...",
+      "visualKeyword": "Historical painting or photo search keywords (e.g. Roman Empire battle soldiers aerial)",
+      "durationSeconds": 6
+    },
+    {
+      "id": 2,
+      "text": "Contextual background and hidden geopolitical or scientific causes...",
+      "visualKeyword": "Historical archive map data discovery",
+      "durationSeconds": 6
+    },
+    {
+      "id": 3,
+      "text": "The critical crisis, battle, or turning point with real names and dates...",
+      "visualKeyword": "Dramatic conflict investigation discovery",
+      "durationSeconds": 6
+    },
+    {
+      "id": 4,
+      "text": "The global fallout and structural consequences...",
+      "visualKeyword": "Global trade industry technology skyline",
+      "durationSeconds": 6
+    },
+    {
+      "id": 5,
+      "text": "Conclusion, long-term legacy, and modern implications...",
+      "visualKeyword": "Epic horizon landscape cinematic sunset",
+      "durationSeconds": 6
+    }
+  ]
+}`;
+
+        const response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            thinkingConfig: {
+              thinkingBudget: 0,
+            },
+            temperature: 0.7,
+          },
+        });
+
+        const rawText = (response.text || "").trim();
+        const cleaned = rawText.replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
+        const parsed = JSON.parse(cleaned);
+
+        if (parsed && Array.isArray(parsed.scenes) && parsed.scenes.length > 0) {
+          return NextResponse.json(parsed);
+        }
+      } catch (aiError) {
+        console.error("Gemini SDK error in route:", aiError);
+      }
     }
 
-    // High quality procedural fallback when no API key is set
-    return NextResponse.json(generateProceduralScript(topic));
+    // Fallback using the user's ACTUAL topic
+    return NextResponse.json(generateProceduralScript(userTopic, isSpanish));
   } catch (err: unknown) {
-    console.error("Script generation error:", err);
-    // Fallback gracefully
-    const body = await req.json().catch(() => ({ topic: "General Documentary" }));
-    return NextResponse.json(generateProceduralScript(body.topic || "Documentary"));
+    console.error("Script generation route error:", err);
+    return NextResponse.json(generateProceduralScript(userTopic, isSpanish));
   }
 }
 
-function generateProceduralScript(topic: string) {
-  const cleanTopic = topic.trim() || "The Great Global Chokepoints";
+function generateProceduralScript(topic: string, isSpanish: boolean) {
+  const cleanTopic = topic.trim() || (isSpanish ? "Grandes Enigmas de la Historia" : "Great Mysteries of History");
+
+  if (isSpanish) {
+    return {
+      title: `La Verdad Detrás de ${cleanTopic}: Investigación Completa`,
+      summary: `Un análisis documental exhaustivo sobre ${cleanTopic}, examinando los factores determinantes, las decisiones críticas y su impacto duradero en el mundo moderno.`,
+      language: "es",
+      seoTags: [
+        cleanTopic.toLowerCase().slice(0, 25),
+        "documental español",
+        "historia explicada",
+        "investigacion",
+        "analisis geopolitico",
+        "curiosidades",
+      ],
+      scenes: [
+        {
+          id: 1,
+          text: `A lo largo de los siglos, pocos temas han generado tanto impacto y debate como ${cleanTopic}.`,
+          visualKeyword: `${cleanTopic} historia documental`,
+          durationSeconds: 6,
+        },
+        {
+          id: 2,
+          text: `Para entender su verdadera dimensión, es necesario analizar el contexto original y las fuerzas ocultas que impulsaron su desarrollo.`,
+          visualKeyword: `${cleanTopic} archivos mapas antiguos`,
+          durationSeconds: 6,
+        },
+        {
+          id: 3,
+          text: `Fue en los momentos de mayor tensión donde se tomaron las decisiones estratégicas que cambiaron definitivamente el rumbo de los acontecimientos.`,
+          visualKeyword: `${cleanTopic} batalla punto de quiebre`,
+          durationSeconds: 6,
+        },
+        {
+          id: 4,
+          text: `Las consecuencias de estos hechos transformaron profundamente la estructura política, social y económica de su época.`,
+          visualKeyword: `${cleanTopic} consecuencias impacto global`,
+          durationSeconds: 6,
+        },
+        {
+          id: 5,
+          text: `Hoy en día, el legado de ${cleanTopic} permanece como una lección fundamental sobre el poder, la estrategia y la historia humana.`,
+          visualKeyword: `${cleanTopic} legado horizonte cine`,
+          durationSeconds: 6,
+        },
+      ],
+    };
+  }
+
   return {
-    title: cleanTopic.length > 55 ? `${cleanTopic.substring(0, 55)}...` : cleanTopic,
-    summary: `A deep-dive investigative documentary exploring "${cleanTopic}", revealing the strategic decisions and hidden forces that shaped modern history.`,
+    title: `The Untold Truth of ${cleanTopic}: Full Documentary`,
+    summary: `An in-depth documentary investigation into ${cleanTopic}, breaking down key historical turning points, hidden factors, and modern consequences.`,
+    language: "en",
     seoTags: [
-      cleanTopic.split(" ")[0].toLowerCase() || "documentary",
-      "history explained",
-      "deep dive",
+      cleanTopic.toLowerCase().slice(0, 25),
+      "documentary explained",
+      "history deep dive",
+      "investigation",
       "geopolitics",
       "analysis",
     ],
     scenes: [
       {
         id: 1,
-        text: `Every major turning point in modern history begins with a single, often overlooked catalyst: ${cleanTopic}.`,
-        visualKeyword: "cinematic landscape aerial mystery",
+        text: `Throughout modern history, few events have carried such profound significance as ${cleanTopic}.`,
+        visualKeyword: `${cleanTopic} cinematic landscape history`,
         durationSeconds: 6,
       },
       {
         id: 2,
-        text: "Beneath the surface of conventional knowledge lies a complex web of geopolitical stakes, engineering marvels, and immense economic power.",
-        visualKeyword: "technology world map data grid",
-        durationSeconds: 7,
+        text: `Behind the surface lies a complex web of geopolitical interests, strategic decisions, and pivotal turning points.`,
+        visualKeyword: `${cleanTopic} historical archives timeline`,
+        durationSeconds: 6,
       },
       {
         id: 3,
-        text: "When historians analyze the critical variables, the data reveals a pattern that most experts completely failed to anticipate.",
-        visualKeyword: "archives investigation documents timeline",
+        text: `When critical evidence is examined, it reveals key moments where decisions altered the fate of nations.`,
+        visualKeyword: `${cleanTopic} dramatic investigation conflict`,
         durationSeconds: 6,
       },
       {
         id: 4,
-        text: "Today, as modern industry accelerates into an uncertain future, the lessons learned here remain more relevant than ever before.",
-        visualKeyword: "futuristic city horizon epic sunset",
+        text: `The structural impact reverberated across global trade, technology, and international relations.`,
+        visualKeyword: `${cleanTopic} world map industry power`,
+        durationSeconds: 6,
+      },
+      {
+        id: 5,
+        text: `Today, the enduring lessons of ${cleanTopic} continue to shape our world in unexpected and vital ways.`,
+        visualKeyword: `${cleanTopic} epic landscape sunset horizon`,
         durationSeconds: 6,
       },
     ],
