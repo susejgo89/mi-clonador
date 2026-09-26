@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { GeneratedVideo } from "@/types/kutly";
 import { 
   X, 
@@ -13,7 +13,6 @@ import {
   Play
 } from "lucide-react";
 import { YouTubeIcon } from "@/components/icons";
-import { speakNarrationText, stopNarrationSpeech } from "@/lib/videoEngine";
 
 interface VideoPlayerModalProps {
   video: GeneratedVideo | null;
@@ -25,10 +24,20 @@ export function VideoPlayerModal({ video, onClose }: VideoPlayerModalProps) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [copiedTitle, setCopiedTitle] = useState(false);
   const [activeSpeakingScene, setActiveSpeakingScene] = useState<number | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setIsSpeaking(false);
+    setActiveSpeakingScene(null);
+  };
 
   useEffect(() => {
     return () => {
-      stopNarrationSpeech();
+      stopAudio();
     };
   }, []);
 
@@ -37,13 +46,15 @@ export function VideoPlayerModal({ video, onClose }: VideoPlayerModalProps) {
   const isSpanish =
     /[áéíóúñ¿¡]/i.test(video.title) ||
     /[áéíóúñ¿¡]/i.test(video.scriptSnippet) ||
-    video.voiceName.toLowerCase().includes("español");
+    video.voiceName.toLowerCase().includes("español") ||
+    video.voiceName.toLowerCase().includes("jorge") ||
+    video.voiceName.toLowerCase().includes("alvaro");
+
+  const edgeVoice = isSpanish ? "es-MX-JorgeNeural" : "en-US-GuyNeural";
 
   const handleToggleFullNarration = async () => {
     if (isSpeaking) {
-      stopNarrationSpeech();
-      setIsSpeaking(false);
-      setActiveSpeakingScene(null);
+      stopAudio();
       return;
     }
 
@@ -52,36 +63,100 @@ export function VideoPlayerModal({ video, onClose }: VideoPlayerModalProps) {
       : video.scriptSnippet;
 
     setIsSpeaking(true);
-    await speakNarrationText(
-      fullScript,
-      isSpanish,
-      "male",
-      () => {
+
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: fullScript,
+          voice: edgeVoice,
+        }),
+      });
+
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audioRef.current = audio;
+
+        audio.onended = () => {
+          setIsSpeaking(false);
+          URL.revokeObjectURL(url);
+        };
+        audio.onerror = () => {
+          setIsSpeaking(false);
+        };
+
+        await audio.play();
+      } else {
         setIsSpeaking(false);
-        setActiveSpeakingScene(null);
       }
-    );
+    } catch {
+      setIsSpeaking(false);
+    }
   };
 
-  const handleSpeakScene = async (sceneText: string, sceneId: number) => {
+  const handleSpeakScene = async (sceneText: string, sceneId: number, sceneAudioUrl?: string) => {
     if (activeSpeakingScene === sceneId) {
-      stopNarrationSpeech();
-      setActiveSpeakingScene(null);
-      setIsSpeaking(false);
+      stopAudio();
       return;
     }
 
+    stopAudio();
     setActiveSpeakingScene(sceneId);
     setIsSpeaking(true);
-    await speakNarrationText(
-      sceneText,
-      isSpanish,
-      "male",
-      () => {
+
+    try {
+      if (sceneAudioUrl) {
+        const audio = new Audio(sceneAudioUrl);
+        audioRef.current = audio;
+        audio.onended = () => {
+          setActiveSpeakingScene(null);
+          setIsSpeaking(false);
+        };
+        audio.onerror = () => {
+          setActiveSpeakingScene(null);
+          setIsSpeaking(false);
+        };
+        await audio.play();
+        return;
+      }
+
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: sceneText,
+          voice: edgeVoice,
+        }),
+      });
+
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audioRef.current = audio;
+
+        audio.onended = () => {
+          setActiveSpeakingScene(null);
+          setIsSpeaking(false);
+          URL.revokeObjectURL(url);
+        };
+        audio.onerror = () => {
+          setActiveSpeakingScene(null);
+          setIsSpeaking(false);
+        };
+
+        await audio.play();
+      } else {
         setActiveSpeakingScene(null);
         setIsSpeaking(false);
       }
-    );
+    } catch {
+      setActiveSpeakingScene(null);
+      setIsSpeaking(false);
+    }
   };
 
   const handleCopyTitle = () => {
@@ -115,10 +190,10 @@ export function VideoPlayerModal({ video, onClose }: VideoPlayerModalProps) {
           </div>
           <button
             onClick={() => {
-              stopNarrationSpeech();
+              stopAudio();
               onClose();
             }}
-            className="p-1.5 rounded-lg text-[#8C8985] hover:text-[#FAFAF7] hover:bg-white/6 transition-colors"
+            className="p-1.5 rounded-lg text-[#8C8985] hover:text-[#FAFAF7] hover:bg-white/6 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -166,7 +241,7 @@ export function VideoPlayerModal({ video, onClose }: VideoPlayerModalProps) {
                 }`}
               >
                 {isSpeaking ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-[#FF7E5F]" />}
-                <span>{isSpeaking ? "Detener Locución de Voz" : "🔊 Escuchar Voz IA (Español)"}</span>
+                <span>{isSpeaking ? "Detener Locución de Voz" : "🔊 Locución Neuronal (Edge-TTS)"}</span>
               </button>
 
               {video.videoBlobUrl ? (
@@ -206,7 +281,7 @@ export function VideoPlayerModal({ video, onClose }: VideoPlayerModalProps) {
                 <button
                   key={t}
                   onClick={() => setActiveTab(t)}
-                  className={`flex-1 py-1.5 rounded-lg capitalize transition-colors font-medium ${
+                  className={`flex-1 py-1.5 rounded-lg capitalize transition-colors font-medium cursor-pointer ${
                     activeTab === t
                       ? "bg-[#151312] text-white shadow-sm border border-white/8"
                       : "text-[#8C8985] hover:text-[#FAFAF7]"
@@ -241,8 +316,8 @@ export function VideoPlayerModal({ video, onClose }: VideoPlayerModalProps) {
                             Escena {i + 1} ({sc.durationSeconds || 6}s)
                           </span>
                           <button
-                            onClick={() => handleSpeakScene(sc.text, sc.id || i + 1)}
-                            className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#252320] hover:bg-[#D9482E] text-white text-[10px] font-medium transition-colors"
+                            onClick={() => handleSpeakScene(sc.text, sc.id || i + 1, sc.audioUrl)}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#252320] hover:bg-[#D9482E] text-white text-[10px] font-medium transition-colors cursor-pointer"
                           >
                             {activeSpeakingScene === (sc.id || i + 1) ? (
                               <>

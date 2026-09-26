@@ -38,6 +38,7 @@ export default function Home() {
     subtitleFont: "bebas_neue",
     genThumbnail: true,
     thumbnailStyles: ["breaking_news", "vs_duel"],
+    visualSource: "auto",
   });
 
   // Modals state

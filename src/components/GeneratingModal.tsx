@@ -12,7 +12,7 @@ import {
   X,
   Check
 } from "lucide-react";
-import { generateDocumentaryScript, renderRealVideo, VideoRenderProgress, stopNarrationSpeech } from "@/lib/videoEngine";
+import { generateDocumentaryScript, renderRealVideo, VideoRenderProgress } from "@/lib/videoEngine";
 
 interface GeneratingModalProps {
   open: boolean;
@@ -45,14 +45,14 @@ export function GeneratingModal({
       icon: FileText,
     },
     {
-      name: isSpanish ? "Búsqueda de Metraje" : "Visual Archival Search",
-      desc: isSpanish ? "Obteniendo pinturas y fotografías históricas en alta resolución" : "Fetching high-res documentary visuals from Wikipedia & archives",
-      icon: Film,
+      name: isSpanish ? "Locución Neuronal Humana" : "Edge-TTS Neural Voiceover",
+      desc: isSpanish ? `Sintetizando escenas con voz de ${settings.voice?.name || "Jorge"} (Edge-TTS)` : `Synthesizing scenes with ${settings.voice?.name || "Guy"} voice`,
+      icon: Volume2,
     },
     {
-      name: isSpanish ? "Locución & Audio" : "Voice & Soundtrack",
-      desc: isSpanish ? `Preparando voz (${settings.voice.name}) y banda sonora cinematográfica` : `Preparing voiceover (${settings.voice.name}) & score`,
-      icon: Volume2,
+      name: isSpanish ? "Búsqueda Multi-Fuente" : "Visual Footage Search",
+      desc: isSpanish ? `Obteniendo metraje en alta resolución (${settings.visualSource || "Auto"})` : "Fetching high-res visual assets",
+      icon: Film,
     },
     {
       name: isSpanish ? "Subtítulos Dinámicos" : "Subtitles & Color Grade",
@@ -61,7 +61,7 @@ export function GeneratingModal({
     },
     {
       name: isSpanish ? "Render Master 1080p" : "Render Master 1080p",
-      desc: isSpanish ? "Codificando archivo de video master final" : "Encoding master video stream",
+      desc: isSpanish ? "Codificando archivo de video master final con audio integrado" : "Encoding master video stream",
       icon: CheckCircle2,
     },
   ];
@@ -72,7 +72,6 @@ export function GeneratingModal({
       setIsDone(false);
       setProgress(5);
       setGeneratedVideo(null);
-      stopNarrationSpeech();
       return;
     }
 
@@ -81,7 +80,7 @@ export function GeneratingModal({
 
     async function runPipeline() {
       try {
-        setPhaseText(isSpanish ? "Investigando y escribiendo guión documental con Gemini..." : "Writing documentary script with Gemini AI...");
+        setPhaseText(isSpanish ? "Investigando y redactando guión documental con Gemini..." : "Writing documentary script with Gemini AI...");
         setProgress(15);
 
         const scriptData = await generateDocumentaryScript(
@@ -89,7 +88,7 @@ export function GeneratingModal({
           parseInt(settings.duration, 10)
         );
 
-        setPhaseText(isSpanish ? "Buscando metraje histórico y componiendo escenas..." : "Compositing video frames, voiceover & subtitles...");
+        setPhaseText(isSpanish ? "Sintetizando locución de voz y buscando metraje..." : "Synthesizing voiceover & fetching visuals...");
 
         const videoResult = await renderRealVideo(settings, scriptData, (prog: VideoRenderProgress) => {
           setPhaseText(prog.phase);
@@ -126,7 +125,7 @@ export function GeneratingModal({
               <h2 className="text-sm sm:text-base font-semibold text-[#FAFAF7]">
                 {isDone
                   ? isSpanish ? "¡Video Generado con Éxito!" : "Video Created Successfully!"
-                  : isSpanish ? "Generando Documental con IA Real..." : "Rendering Real AI Video..."}
+                  : isSpanish ? "Generando Documental con IA y Voz Neuronal..." : "Rendering Real AI Video..."}
               </h2>
               <p className="text-xs text-[#8C8985] line-clamp-1">
                 {settings.topic || (isSpanish ? "Producción automatizada de video" : "Autonomous video production pipeline")}

@@ -3,7 +3,8 @@
 import React, { useState } from "react";
 import { 
   VideoSettings, 
-  DurationOption
+  DurationOption,
+  VisualSourceMode
 } from "@/types/kutly";
 import { PROMPT_STARTERS, MUSIC_PACKS } from "@/lib/data";
 import { 
@@ -19,7 +20,8 @@ import {
   X, 
   ArrowRight,
   Shuffle,
-  Info
+  Info,
+  Layers
 } from "lucide-react";
 
 interface ComposerProps {
@@ -73,18 +75,18 @@ export function Composer({
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6">
+    <div className="w-full max-w-4xl mx-auto space-y-6 animate-in fade-in duration-200">
       {/* Studio Banner / Headline */}
       <div className="text-center space-y-2 pt-2 pb-1">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#D9482E]/10 border border-[#D9482E]/20 text-[#FAFAF7] text-xs font-mono">
           <Sparkles className="w-3.5 h-3.5 text-[#D9482E]" />
-          <span>One Prompt · Complete Long-Form Video</span>
+          <span>Generador Autónomo de Documentales y Videos Largos</span>
         </div>
         <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight text-[#FAFAF7]">
-          Create a faceless documentary in minutes
+          Crea documentales profesionales con IA en minutos
         </h2>
         <p className="text-xs sm:text-sm text-[#8C8985] max-w-xl mx-auto">
-          Scriptwriting, neural voiceover, motion design, visual sequencing, captions & thumbnail.
+          Guión de investigación profunda, locución neuronal humana, búsqueda de metraje y subtítulos dinámicos.
         </p>
       </div>
 
@@ -103,7 +105,7 @@ export function Composer({
               }`}
             >
               <Sparkles className="w-3.5 h-3.5 text-[#D9482E]" />
-              <span>Idea to Video</span>
+              <span>Idea a Video Completo</span>
             </button>
 
             <button
@@ -116,7 +118,7 @@ export function Composer({
               }`}
             >
               <Mic className="w-3.5 h-3.5 text-[#FF7E5F]" />
-              <span>Voiceover to Video</span>
+              <span>Audio a Video</span>
             </button>
           </div>
 
@@ -125,11 +127,11 @@ export function Composer({
             <button
               type="button"
               onClick={handleShufflePrompt}
-              className="flex items-center gap-1.5 text-xs text-[#8C8985] hover:text-[#FAFAF7] transition-colors p-1.5 rounded-lg hover:bg-[#252320]"
-              title="Get a random topic idea"
+              className="flex items-center gap-1.5 text-xs text-[#8C8985] hover:text-[#FAFAF7] transition-colors p-1.5 rounded-lg hover:bg-[#252320] cursor-pointer"
+              title="Obtener un tema de ejemplo"
             >
               <Shuffle className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Try an example</span>
+              <span className="hidden sm:inline">Ejemplo aleatorio</span>
             </button>
           )}
         </div>
@@ -144,13 +146,13 @@ export function Composer({
                   onUpdateSettings((prev) => ({ ...prev, topic: e.target.value }))
                 }
                 rows={3}
-                maxLength={400}
-                placeholder="What should this video be about? e.g. Why the Roman Empire never had an industrial revolution..."
+                maxLength={500}
+                placeholder="¿De qué tratará el documental? Ej: La caída del Imperio Romano, la crisis de los misiles en Cuba, el misterio del triángulo de las Bermudas..."
                 className="w-full bg-transparent text-sm sm:text-base text-[#FAFAF7] placeholder-[#8C8985] resize-none focus:outline-none leading-relaxed"
               />
               <div className="flex items-center justify-between pt-2 text-[11px] text-[#8C8985] font-mono border-t border-white/4">
-                <span>Supports any topic, history, science, true crime, tech & business.</span>
-                <span>{settings.topic.length} / 400</span>
+                <span>Historia, geopolítica, ciencia, tecnología, misterios o finanzas.</span>
+                <span>{settings.topic.length} / 500</span>
               </div>
             </div>
           ) : (
@@ -176,7 +178,7 @@ export function Composer({
                     </div>
                     <div>
                       <p className="text-xs font-semibold text-[#FAFAF7]">{settings.audioFile}</p>
-                      <p className="text-[10px] text-[#8C8985]">Narration ready for sync</p>
+                      <p className="text-[10px] text-[#8C8985]">Locución lista para sincronizar</p>
                     </div>
                   </div>
                   <button
@@ -193,11 +195,11 @@ export function Composer({
                 <>
                   <UploadCloud className="w-8 h-8 text-[#D9482E] mb-2" />
                   <p className="text-xs font-semibold text-[#FAFAF7]">
-                    Drop your narration audio here, or{" "}
-                    <span className="text-[#FF7E5F] underline">browse files</span>
+                    Arrastra tu archivo de audio aquí, o{" "}
+                    <span className="text-[#FF7E5F] underline">selecciona un archivo</span>
                   </p>
                   <p className="text-[11px] text-[#8C8985] mt-1">
-                    MP3, WAV, M4A · 8 to 30 minutes · up to 100 MB
+                    MP3, WAV, M4A · 8 a 30 minutos · hasta 100 MB
                   </p>
                 </>
               )}
@@ -217,7 +219,7 @@ export function Composer({
                 key={dur}
                 type="button"
                 onClick={() => onUpdateSettings((prev) => ({ ...prev, duration: dur }))}
-                className={`px-2.5 py-1 rounded-lg font-mono font-medium transition-colors ${
+                className={`px-2.5 py-1 rounded-lg font-mono font-medium transition-colors cursor-pointer ${
                   settings.duration === dur
                     ? "bg-[#D9482E] text-white font-bold"
                     : "text-[#A3A09A] hover:text-[#FAFAF7]"
@@ -237,10 +239,38 @@ export function Composer({
             >
               <Volume2 className="w-3.5 h-3.5 text-[#FF7E5F]" />
               <span>
-                Voice: <strong className="font-semibold">{settings.voice.name}</strong>
+                Voz: <strong className="font-semibold text-white">{settings.voice?.name || "Jorge"}</strong>
               </span>
             </button>
           )}
+
+          {/* Visual Source Selector Chip */}
+          <div className="relative">
+            <select
+              value={settings.visualSource || "auto"}
+              onChange={(e) =>
+                onUpdateSettings((prev) => ({
+                  ...prev,
+                  visualSource: e.target.value as VisualSourceMode,
+                }))
+              }
+              className="appearance-none pl-7 pr-7 py-1.5 rounded-xl bg-[#252320] border border-white/6 text-xs text-[#FAFAF7] focus:outline-none cursor-pointer"
+            >
+              <option value="auto" className="bg-[#1C1A18] text-white">
+                Imágenes: ✨ Auto (IA + Archivo)
+              </option>
+              <option value="ai" className="bg-[#1C1A18] text-white">
+                Imágenes: 🎨 IA Generativa (Flux)
+              </option>
+              <option value="wikimedia" className="bg-[#1C1A18] text-white">
+                Imágenes: 🏛️ Wikipedia Histórica
+              </option>
+              <option value="pexels" className="bg-[#1C1A18] text-white">
+                Imágenes: 📸 Stock (Pexels / Pixabay)
+              </option>
+            </select>
+            <Layers className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#FF7E5F] pointer-events-none" />
+          </div>
 
           {/* Style Pack Chip */}
           <button
@@ -250,7 +280,7 @@ export function Composer({
           >
             <Palette className="w-3.5 h-3.5 text-[#FF7E5F]" />
             <span>
-              Style: <strong className="font-semibold">{settings.stylePack.name}</strong>
+              Estilo: <strong className="font-semibold">{settings.stylePack.name}</strong>
             </span>
           </button>
 
@@ -266,7 +296,7 @@ export function Composer({
           >
             <Type className="w-3.5 h-3.5 text-[#D9482E]" />
             <span>
-              Subtitles: <strong>{settings.subtitlesOn ? "On" : "Off"}</strong>
+              Subtítulos: <strong>{settings.subtitlesOn ? "Activados" : "Desactivados"}</strong>
             </span>
           </button>
 
@@ -283,11 +313,11 @@ export function Composer({
             >
               {MUSIC_PACKS.map((m) => (
                 <option key={m.id} value={m.id} className="bg-[#1C1A18] text-white">
-                  Music: {m.name}
+                  Música: {m.name}
                 </option>
               ))}
               <option value="none" className="bg-[#1C1A18] text-white">
-                Music: None
+                Música: Ninguna
               </option>
             </select>
             <Music className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#FF7E5F] pointer-events-none" />
@@ -304,7 +334,7 @@ export function Composer({
               className="accent-[#D9482E] rounded"
             />
             <ImageIcon className="w-3.5 h-3.5 text-[#D9482E]" />
-            <span>Auto Thumbnail</span>
+            <span>Miniatura IA</span>
           </label>
         </div>
 
@@ -313,9 +343,9 @@ export function Composer({
           <div className="flex items-center gap-2 text-xs text-[#8C8985]">
             <Info className="w-4 h-4 text-[#D9482E]" />
             <span>
-              Production cost:{" "}
-              <strong className="text-[#FAFAF7] font-mono font-semibold">{currentCost} credits</strong>{" "}
-              ({settings.duration} min duration, 1080p export)
+              Producción completa:{" "}
+              <strong className="text-[#FAFAF7] font-mono font-semibold">{currentCost} créditos</strong>{" "}
+              ({settings.duration} min, voz neuronal Edge-TTS, 1080p 60FPS)
             </span>
           </div>
 
@@ -330,7 +360,7 @@ export function Composer({
             }`}
           >
             <Sparkles className="w-4.5 h-4.5 animate-pulse" />
-            <span>Generate Full Video</span>
+            <span>Generar Documental Completo</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>

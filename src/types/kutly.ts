@@ -2,13 +2,16 @@ export type GenerationMode = "idea" | "voiceover";
 
 export type DurationOption = "8" | "14" | "20" | "30";
 
+export type VisualSourceMode = "auto" | "ai" | "wikimedia" | "pexels" | "pixabay" | "upload";
+
 export interface Voice {
   id: string;
   name: string;
   gender: "male" | "female";
-  accent: "American" | "British" | "Australian";
+  accent: "American" | "British" | "Australian" | "Spanish (México)" | "Spanish (España)" | "Spanish (Argentina)";
   style: string;
   sampleText: string;
+  edgeVoiceId: string;
   isFavorite?: boolean;
 }
 
@@ -44,6 +47,7 @@ export interface VideoSettings {
   subtitleFont: SubtitleFont;
   genThumbnail: boolean;
   thumbnailStyles: string[];
+  visualSource: VisualSourceMode;
 }
 
 export interface VideoScene {
@@ -53,6 +57,7 @@ export interface VideoScene {
   durationSeconds: number;
   imageUrl?: string;
   videoUrl?: string;
+  audioUrl?: string;
 }
 
 export interface GeneratedVideo {
@@ -72,6 +77,13 @@ export interface GeneratedVideo {
   viewsCount?: number;
   videoBlobUrl?: string;
   scenes?: VideoScene[];
+}
+
+export interface AppApiKeys {
+  geminiKey: string;
+  pexelsKey: string;
+  pixabayKey: string;
+  elevenLabsKey: string;
 }
 
 export interface PricingPlan {
