@@ -429,38 +429,100 @@ export async function renderRealVideo(
         ctx.fillRect(0, height - 55, width, 55);
       }
 
-      // Draw burned-in kinetic subtitles
+      // Draw burned-in kinetic subtitles with large, readable chunked typography
       if (settings.subtitlesOn && activeScene) {
-        const words = activeScene.text.split(" ");
+        const rawWords = activeScene.text.trim().split(/\s+/).filter(Boolean);
         const dur = activeScene.durationSeconds || 6;
-        const wordsPerSec = Math.max(1, words.length / dur);
-        const activeWordIdx = Math.min(words.length - 1, Math.floor(sceneLocalTime * wordsPerSec));
+        const wordsCount = rawWords.length;
 
-        // Subtitle card backdrop
-        ctx.fillStyle = "rgba(14, 12, 11, 0.88)";
-        ctx.roundRect(80, height - 140, width - 160, 85, 16);
-        ctx.fill();
+        if (wordsCount > 0) {
+          const wordsPerSec = wordsCount / dur;
+          const currentWordIndex = Math.min(wordsCount - 1, Math.floor(sceneLocalTime * wordsPerSec));
 
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.18)";
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
+          // Dynamic Chunking: 4 to 5 words per subtitle card for fast reading
+          const CHUNK_SIZE = 4;
+          const chunkIndex = Math.floor(currentWordIndex / CHUNK_SIZE);
+          const chunkStart = chunkIndex * CHUNK_SIZE;
+          const chunkEnd = Math.min(wordsCount, chunkStart + CHUNK_SIZE);
+          const chunkWords = rawWords.slice(chunkStart, chunkEnd);
+          const activeWordInChunk = currentWordIndex - chunkStart;
 
-        ctx.font = "bold 23px sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
+          // Select font family
+          let fontFam = "'Inter', -apple-system, sans-serif";
+          if (settings.subtitleFont === "bebas_neue") fontFam = "'Bebas Neue', Impact, sans-serif";
+          else if (settings.subtitleFont === "poppins") fontFam = "'Poppins', sans-serif";
+          else if (settings.subtitleFont === "lora") fontFam = "'Lora', Georgia, serif";
+          else if (settings.subtitleFont === "roboto") fontFam = "'Roboto', sans-serif";
 
-        const textY = height - 98;
-        const totalText = activeScene.text;
+          ctx.save();
+          ctx.font = `900 36px ${fontFam}`;
+          ctx.textAlign = "left";
+          ctx.textBaseline = "middle";
 
-        // Render full subtitle line
-        ctx.fillStyle = "#FAFAF7";
-        ctx.fillText(totalText, width / 2, textY, width - 200);
+          // Calculate widths
+          const wordSpacings: number[] = [];
+          let totalChunkWidth = 0;
+          const spaceWidth = ctx.measureText(" ").width;
 
-        // Highlight active word in orange pill
-        if (words[activeWordIdx]) {
-          ctx.fillStyle = "#FF7E5F";
-          ctx.font = "bold 17px sans-serif";
-          ctx.fillText(`▶ ${words[activeWordIdx]}`, width / 2, height - 155);
+          for (const w of chunkWords) {
+            const wWidth = ctx.measureText(w).width;
+            wordSpacings.push(wWidth);
+            totalChunkWidth += wWidth;
+          }
+          totalChunkWidth += spaceWidth * Math.max(0, chunkWords.length - 1);
+
+          const centerY = height - 100;
+          const paddingX = 26;
+          const cardHeight = 62;
+          const cardWidth = Math.min(width - 80, totalChunkWidth + paddingX * 2);
+          const startX = (width - cardWidth) / 2;
+
+          // 1. Draw subtitle style background
+          if (settings.subtitleStyle !== "clean" && settings.subtitleStyle !== "minimal") {
+            ctx.fillStyle = "rgba(12, 10, 9, 0.88)";
+            ctx.beginPath();
+            ctx.roundRect(startX, centerY - cardHeight / 2, cardWidth, cardHeight, 14);
+            ctx.fill();
+
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+          }
+
+          // 2. Draw each word in the active phrase
+          let cursorX = startX + (cardWidth - totalChunkWidth) / 2;
+
+          for (let i = 0; i < chunkWords.length; i++) {
+            const word = chunkWords[i];
+            const isCurrent = i === activeWordInChunk;
+            const wWidth = wordSpacings[i];
+
+            // Active word highlight background in karaoke mode
+            if (isCurrent && (settings.subtitleStyle === "karaoke" || settings.subtitleStyle === "word")) {
+              ctx.fillStyle = "rgba(217, 72, 46, 0.35)";
+              ctx.beginPath();
+              ctx.roundRect(cursorX - 5, centerY - 24, wWidth + 10, 48, 8);
+              ctx.fill();
+            }
+
+            // Strong black text stroke for ultra-high contrast on any background
+            ctx.strokeStyle = "rgba(0, 0, 0, 0.95)";
+            ctx.lineWidth = 6;
+            ctx.lineJoin = "round";
+            ctx.strokeText(word, cursorX, centerY);
+
+            // Active word color (Vibrant gold/yellow or bright white)
+            if (isCurrent) {
+              ctx.fillStyle = settings.subtitleStyle === "minimal" ? "#FFFFFF" : "#FFD000";
+            } else {
+              ctx.fillStyle = "#FAFAF7";
+            }
+
+            ctx.fillText(word, cursorX, centerY);
+            cursorX += wWidth + spaceWidth;
+          }
+
+          ctx.restore();
         }
       }
 

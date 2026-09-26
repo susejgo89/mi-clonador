@@ -41,25 +41,9 @@ export function Composer({
   onOpenStylePicker,
   onOpenSubtitlesPicker,
   onStartGeneration,
-  userCredits,
 }: ComposerProps) {
   const [dragOver, setDragOver] = useState(false);
   const [selectedMusicId, setSelectedMusicId] = useState<string>("the_investigator");
-
-  const durationCreditCost: Record<DurationOption, number> = {
-    "1": 5,
-    "3": 15,
-    "5": 25,
-    "8": 35,
-    "14": 60,
-    "20": 85,
-    "30": 120,
-    "45": 160,
-    "60": 200,
-  };
-
-  const currentCost = durationCreditCost[settings.duration];
-  const hasEnoughCredits = userCredits >= currentCost;
 
   const handleShufflePrompt = () => {
     const random = PROMPT_STARTERS[Math.floor(Math.random() * PROMPT_STARTERS.length)];
@@ -348,18 +332,18 @@ export function Composer({
           <div className="flex items-center gap-2 text-xs text-[#8C8985]">
             <Info className="w-4 h-4 text-[#D9482E]" />
             <span>
-              Producción completa:{" "}
-              <strong className="text-[#FAFAF7] font-mono font-semibold">{currentCost} créditos</strong>{" "}
-              ({settings.duration} min, voz neuronal Edge-TTS, 1080p 60FPS)
+              Producción local:{" "}
+              <strong className="text-[#FAFAF7] font-semibold">Ilimitada / Gratis</strong>{" "}
+              ({settings.duration} min · Edge-TTS neuronal · 1080p 60FPS)
             </span>
           </div>
 
           <button
             type="button"
             onClick={onStartGeneration}
-            disabled={!hasEnoughCredits || (!settings.topic.trim() && !settings.audioFile)}
+            disabled={!settings.topic.trim() && !settings.audioFile}
             className={`w-full sm:w-auto flex items-center justify-center gap-2.5 px-6 py-3 rounded-xl font-semibold text-sm transition-all cursor-pointer shadow-lg ${
-              !hasEnoughCredits || (!settings.topic.trim() && !settings.audioFile)
+              !settings.topic.trim() && !settings.audioFile
                 ? "bg-[#252320] text-[#8C8985] cursor-not-allowed"
                 : "bg-gradient-to-r from-[#D9482E] to-[#FF7E5F] hover:from-[#FF7E5F] hover:to-[#D9482E] text-white shadow-[#D9482E]/25 hover:scale-[1.02] active:scale-[0.98]"
             }`}

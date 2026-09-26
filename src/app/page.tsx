@@ -21,8 +21,8 @@ const LOCAL_STORAGE_KEY = "kutly_saved_videos";
 export default function Home() {
   const [currentView, setCurrentView] = useState<"home" | "projects" | "pricing" | "account">("home");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [credits, setCredits] = useState(120);
-  const maxCredits = 2000;
+  const [credits, setCredits] = useState(9999);
+  const maxCredits = 9999;
 
   // Video Settings state
   const [settings, setSettings] = useState<VideoSettings>({
