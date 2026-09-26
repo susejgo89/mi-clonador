@@ -43,17 +43,34 @@ export async function generateSpeechAudioBuffer(
   return { arrayBuffer: new ArrayBuffer(0), duration: 6 };
 }
 
+const DIVERSE_HISTORICAL_IMAGES = [
+  "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=1280&auto=format&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=1280&auto=format&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1280&auto=format&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1280&auto=format&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=1280&auto=format&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1280&auto=format&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1280&auto=format&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=1280&auto=format&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?w=1280&auto=format&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1280&auto=format&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1280&auto=format&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=1280&auto=format&fit=crop&q=80",
+];
+
 /**
- * Fetch dynamic imagery from multi-source search (/api/media-search)
+ * Fetch dynamic imagery from multi-source search (/api/media-search) with guaranteed CORS proxy
  */
 export async function fetchThematicVisual(
   query: string,
   visualSource: VisualSourceMode = "auto",
-  fallbackUrl: string = "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=1280&auto=format&fit=crop&q=80"
+  sceneIndex: number = 0,
+  fallbackUrl?: string
 ): Promise<string> {
+  const safeFallback = fallbackUrl || DIVERSE_HISTORICAL_IMAGES[sceneIndex % DIVERSE_HISTORICAL_IMAGES.length];
   try {
     const cleanQuery = query.replace(/[^\w\s\u00C0-\u017F]/gi, " ").trim();
-    if (!cleanQuery) return fallbackUrl;
+    if (!cleanQuery) return `/api/proxy-image?url=${encodeURIComponent(safeFallback)}`;
 
     const res = await fetch("/api/media-search", {
       method: "POST",
@@ -67,14 +84,18 @@ export async function fetchThematicVisual(
     if (res.ok) {
       const data = await res.json();
       if (data.media && data.media.length > 0) {
-        return data.media[0].url;
+        // Pick an item by scene index to maximize visual variation across scenes
+        const picked = data.media[sceneIndex % data.media.length];
+        if (picked && picked.url) {
+          return `/api/proxy-image?url=${encodeURIComponent(picked.url)}`;
+        }
       }
     }
   } catch (err) {
-    console.warn("Media search error, using fallback visual:", err);
+    console.warn("Media search error, using proxy fallback visual:", err);
   }
 
-  return fallbackUrl;
+  return `/api/proxy-image?url=${encodeURIComponent(safeFallback)}`;
 }
 
 export async function generateDocumentaryScript(
@@ -234,9 +255,9 @@ export async function renderRealVideo(
     });
   }
 
-  // 3. Preload Unique Visual Images for Each Scene
+  // 3. Preload Unique Visual Images for Each Scene via CORS Proxy
   onProgress({
-    phase: isSpanish ? "Buscando metraje e imágenes en alta resolución para cada escena..." : "Fetching unique visual assets for each scene...",
+    phase: isSpanish ? "Cargando metraje e imágenes en alta resolución para cada escena..." : "Fetching unique visual assets for each scene...",
     percent: 40,
     currentFrame: 0,
     totalFrames: 100,
@@ -250,6 +271,7 @@ export async function renderRealVideo(
     const visualUrl = await fetchThematicVisual(
       visualQuery,
       settings.visualSource || "auto",
+      i,
       settings.stylePack.previewUrl
     );
 
@@ -262,15 +284,21 @@ export async function renderRealVideo(
     await new Promise((resolve) => {
       img.onload = resolve;
       img.onerror = () => {
-        img.src = settings.stylePack.previewUrl;
-        resolve(null);
+        // Fallback to a diverse historical image from the catalog
+        const fallbackSrc = `/api/proxy-image?url=${encodeURIComponent(
+          DIVERSE_HISTORICAL_IMAGES[i % DIVERSE_HISTORICAL_IMAGES.length]
+        )}`;
+        img.src = fallbackSrc;
+        img.onload = resolve;
+        img.onerror = resolve;
       };
     });
     loadedImages.push(img);
   }
 
   // 4. Schedule Speech Narration onto the Recording Stream at Exact Scene Timings
-  let accumulatedTime = 0.2; // slight pre-roll
+  const audioStartContextTime = audioContext.currentTime + 0.3; // Precise audio clock baseline
+  let accumulatedTime = 0;
   const sceneTimeline: { startTime: number; endTime: number; duration: number }[] = [];
 
   for (let i = 0; i < updatedScenes.length; i++) {
@@ -287,8 +315,8 @@ export async function renderRealVideo(
       sourceNode.connect(voiceGain);
       voiceGain.connect(dest);
 
-      // Start speech at exact scheduled second
-      sourceNode.start(audioContext.currentTime + accumulatedTime);
+      // Start speech at exact hardware clock second
+      sourceNode.start(audioStartContextTime + accumulatedTime);
     }
 
     sceneTimeline.push({
@@ -358,7 +386,7 @@ export async function renderRealVideo(
   recorder.start(100);
 
   // Total recording duration based on actual spoken audio length
-  const totalVideoSeconds = Math.max(10, accumulatedTime + 0.5);
+  const totalVideoSeconds = Math.max(10, accumulatedTime + 0.6);
   const totalFrames = Math.ceil(fps * totalVideoSeconds);
 
   let frameCount = 0;
@@ -366,19 +394,20 @@ export async function renderRealVideo(
   await new Promise<void>((resolve) => {
     const renderLoop = () => {
       frameCount++;
-      const currentSeconds = frameCount / fps;
-      const progressPercent = Math.min(96, 45 + Math.round((frameCount / totalFrames) * 50));
+      // Hardware-synchronized elapsed time from AudioContext
+      const currentSeconds = Math.max(0, audioContext.currentTime - audioStartContextTime);
+      const progressPercent = Math.min(98, 45 + Math.round((currentSeconds / totalVideoSeconds) * 52));
 
       onProgress({
         phase: isSpanish
-          ? `Componiendo escenas, voz y subtítulos (${frameCount}/${totalFrames} fotogramas)...`
-          : `Compositing scenes, neural voice & subtitles (${frameCount}/${totalFrames} frames)...`,
+          ? `Componiendo documental sincronizado (${Math.round(currentSeconds)}s / ${Math.round(totalVideoSeconds)}s)...`
+          : `Compositing synchronized documentary (${Math.round(currentSeconds)}s / ${Math.round(totalVideoSeconds)}s)...`,
         percent: progressPercent,
         currentFrame: frameCount,
         totalFrames,
       });
 
-      // Determine active scene from timeline
+      // Determine active scene from exact audio timeline
       let activeSceneIndex = 0;
       let sceneLocalTime = 0;
 
@@ -403,7 +432,9 @@ export async function renderRealVideo(
       ctx.fillRect(0, 0, width, height);
 
       if (activeImg && activeImg.complete && activeImg.naturalWidth > 0) {
-        const zoom = 1 + (frameCount % (fps * 8)) * 0.0015;
+        const sceneDur = activeScene.durationSeconds || 6;
+        const sceneRatio = Math.min(1, Math.max(0, sceneLocalTime / sceneDur));
+        const zoom = 1.0 + sceneRatio * 0.08;
         const drawW = width * zoom;
         const drawH = height * zoom;
         const drawX = (width - drawW) / 2;
@@ -432,14 +463,15 @@ export async function renderRealVideo(
       // Draw burned-in kinetic subtitles with large, readable chunked typography
       if (settings.subtitlesOn && activeScene) {
         const rawWords = activeScene.text.trim().split(/\s+/).filter(Boolean);
-        const dur = activeScene.durationSeconds || 6;
+        const dur = Math.max(1, activeScene.durationSeconds || 6);
         const wordsCount = rawWords.length;
 
         if (wordsCount > 0) {
-          const wordsPerSec = wordsCount / dur;
-          const currentWordIndex = Math.min(wordsCount - 1, Math.floor(sceneLocalTime * wordsPerSec));
+          // Exact synchronized progress inside this scene
+          const sceneProgress = Math.min(0.999, Math.max(0, sceneLocalTime / dur));
+          const currentWordIndex = Math.floor(sceneProgress * wordsCount);
 
-          // Dynamic Chunking: 4 to 5 words per subtitle card for fast reading
+          // Dynamic Chunking: 4 words per subtitle card for optimal readability
           const CHUNK_SIZE = 4;
           const chunkIndex = Math.floor(currentWordIndex / CHUNK_SIZE);
           const chunkStart = chunkIndex * CHUNK_SIZE;
@@ -532,7 +564,7 @@ export async function renderRealVideo(
       ctx.textAlign = "right";
       ctx.fillText("KUTLY AI DOCUMENTARY STUDIO", width - 35, 35);
 
-      if (frameCount < totalFrames) {
+      if (currentSeconds < totalVideoSeconds) {
         requestAnimationFrame(renderLoop);
       } else {
         // Finalize audio and recording

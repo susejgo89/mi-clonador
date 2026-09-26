@@ -27,7 +27,9 @@ Tema: "${userTopic}"
 Duración objetivo: ${durationMinutes} minutos.
 
 Escribe un guión documental profundo, riguroso y cinematográfico en ESPAÑOL neutro.
+Genera entre 6 y 10 escenas consecutivas que cubran toda la historia paso a paso.
 Incluye DATOS REALES específicos: fechas históricas, nombres de personajes clave, batallas o eventos cruciales, cifras y giros estratégicos.
+IMPORTANTE: Cada escena DEBE tener un "visualKeyword" completamente ÚNICO y muy descriptivo en inglés/español para buscar una imagen o pintura histórica diferente (ej: "WW2 bomber aircraft cockpit", "night sky anti-aircraft fire", "snow pine forest crash site", "vintage medical report archive").
 
 Estructura de respuesta: Devuelve ÚNICAMENTE un objeto JSON con este formato exacto:
 {
@@ -39,31 +41,37 @@ Estructura de respuesta: Devuelve ÚNICAMENTE un objeto JSON con este formato ex
     {
       "id": 1,
       "text": "Narración introductoria con gancho y contexto histórico/científico real...",
-      "visualKeyword": "Término de búsqueda de pintura histórica o fotografía real (ej: Coliseo Romano legiones batalla)",
+      "visualKeyword": "Término visual único y específico para escena 1",
       "durationSeconds": 6
     },
     {
       "id": 2,
       "text": "Narración sobre los antecedentes y las causas ocultas...",
-      "visualKeyword": "Término temático para buscar imagen histórica",
+      "visualKeyword": "Término visual único y específico para escena 2",
       "durationSeconds": 6
     },
     {
       "id": 3,
-      "text": "Narración del punto de inflexión, conflicto clave o momento determinante con fechas y nombres...",
-      "visualKeyword": "Término temático para buscar imagen histórica",
+      "text": "Narración del punto de inflexión, conflicto clave o momento determinante...",
+      "visualKeyword": "Término visual único y específico para escena 3",
       "durationSeconds": 6
     },
     {
       "id": 4,
-      "text": "Narración de las consecuencias geopolíticas o impacto a gran escala...",
-      "visualKeyword": "Término temático para buscar imagen histórica",
+      "text": "Narración del clímax o evento extraordinario...",
+      "visualKeyword": "Término visual único y específico para escena 4",
       "durationSeconds": 6
     },
     {
       "id": 5,
-      "text": "Narración de conclusión y lección histórica para el mundo contemporáneo...",
-      "visualKeyword": "Término temático para buscar imagen histórica",
+      "text": "Narración de las consecuencias geopolíticas o impacto...",
+      "visualKeyword": "Término visual único y específico para escena 5",
+      "durationSeconds": 6
+    },
+    {
+      "id": 6,
+      "text": "Narración de conclusión y lección histórica...",
+      "visualKeyword": "Término visual único y específico para escena 6",
       "durationSeconds": 6
     }
   ]
@@ -73,7 +81,9 @@ Topic: "${userTopic}"
 Target duration: ${durationMinutes} minutes.
 
 Write a deeply factual, captivating, and well-researched documentary script in ENGLISH.
+Generate 6 to 10 chronological scenes covering the entire investigation.
 Include REAL FACTS: historical dates, key figures, turning points, statistics, and strategic impacts.
+IMPORTANT: Each scene MUST have a completely UNIQUE and highly descriptive "visualKeyword" (e.g. "WW2 bomber cockpit night", "aircraft engine fire", "snow forest pine branches", "vintage hospital archive document").
 
 Return ONLY a valid JSON object matching this format:
 {
@@ -85,31 +95,37 @@ Return ONLY a valid JSON object matching this format:
     {
       "id": 1,
       "text": "Opening hook narration introducing the core mystery or turning point...",
-      "visualKeyword": "Historical painting or photo search keywords (e.g. Roman Empire battle soldiers aerial)",
+      "visualKeyword": "Unique visual keyword for scene 1",
       "durationSeconds": 6
     },
     {
       "id": 2,
       "text": "Contextual background and hidden geopolitical or scientific causes...",
-      "visualKeyword": "Historical archive map data discovery",
+      "visualKeyword": "Unique visual keyword for scene 2",
       "durationSeconds": 6
     },
     {
       "id": 3,
       "text": "The critical crisis, battle, or turning point with real names and dates...",
-      "visualKeyword": "Dramatic conflict investigation discovery",
+      "visualKeyword": "Unique visual keyword for scene 3",
       "durationSeconds": 6
     },
     {
       "id": 4,
-      "text": "The global fallout and structural consequences...",
-      "visualKeyword": "Global trade industry technology skyline",
+      "text": "The climax or dramatic breakthrough...",
+      "visualKeyword": "Unique visual keyword for scene 4",
       "durationSeconds": 6
     },
     {
       "id": 5,
+      "text": "The global fallout and structural consequences...",
+      "visualKeyword": "Unique visual keyword for scene 5",
+      "durationSeconds": 6
+    },
+    {
+      "id": 6,
       "text": "Conclusion, long-term legacy, and modern implications...",
-      "visualKeyword": "Epic horizon landscape cinematic sunset",
+      "visualKeyword": "Unique visual keyword for scene 6",
       "durationSeconds": 6
     }
   ]
