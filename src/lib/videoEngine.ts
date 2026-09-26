@@ -16,12 +16,12 @@ export interface ScriptResponse {
 }
 
 /**
- * Fetch high quality neural TTS audio from the local backend (/api/tts)
+ * Fetch high quality neural TTS audio array buffer from the local backend (/api/tts)
  */
-export async function generateSpeechAudioBlob(
+export async function generateSpeechAudioBuffer(
   text: string,
   voiceEdgeId: string = "es-MX-JorgeNeural"
-): Promise<{ blob: Blob; url: string; duration: number }> {
+): Promise<{ arrayBuffer: ArrayBuffer; duration: number }> {
   try {
     const res = await fetch("/api/tts", {
       method: "POST",
@@ -33,30 +33,14 @@ export async function generateSpeechAudioBlob(
     });
 
     if (res.ok) {
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-
-      // Measure audio duration using an Audio element
-      const duration = await new Promise<number>((resolve) => {
-        const audio = new Audio();
-        audio.src = url;
-        audio.onloadedmetadata = () => {
-          resolve(audio.duration || 6);
-        };
-        audio.onerror = () => {
-          resolve(Math.max(5, Math.ceil(text.split(" ").length * 0.4)));
-        };
-      });
-
-      return { blob, url, duration };
+      const arrayBuffer = await res.arrayBuffer();
+      return { arrayBuffer, duration: 6 };
     }
   } catch (err) {
-    console.warn("TTS API fetch error, fallback duration:", err);
+    console.warn("TTS API fetch error, using silent fallback:", err);
   }
 
-  // Fallback if network offline
-  const fallbackSec = Math.max(5, Math.ceil(text.split(" ").length * 0.4));
-  return { blob: new Blob(), url: "", duration: fallbackSec };
+  return { arrayBuffer: new ArrayBuffer(0), duration: 6 };
 }
 
 /**
@@ -189,10 +173,10 @@ export async function renderRealVideo(
     /[áéíóúñ¿¡]/i.test(scriptData.scenes[0]?.text || "") ||
     /[áéíóúñ¿¡]/i.test(scriptData.title || "");
 
-  // 1. Prepare Audio Context & Speech Tracks
+  // 1. Initialize Audio Context & Stream Destination
   onProgress({
     phase: isSpanish ? "Sintetizando locución neuronal humana con Edge-TTS..." : "Synthesizing neural voiceover with Edge-TTS...",
-    percent: 15,
+    percent: 10,
     currentFrame: 0,
     totalFrames: 100,
   });
@@ -203,43 +187,56 @@ export async function renderRealVideo(
   const audioContext = new AudioCtx();
   const dest = audioContext.createMediaStreamDestination();
 
-  // Selected Voice ID
   const edgeVoice = settings.voice?.edgeVoiceId || (isSpanish ? "es-MX-JorgeNeural" : "en-US-GuyNeural");
 
-  // Pre-fetch neural speech audio buffers for each scene
-  const sceneAudioElements: HTMLAudioElement[] = [];
+  // 2. Fetch and Decode Speech Audio Buffers for Every Scene
+  const decodedAudioBuffers: (AudioBuffer | null)[] = [];
   const updatedScenes: VideoScene[] = [];
+  const sceneAudioUrls: string[] = [];
 
   for (let i = 0; i < scriptData.scenes.length; i++) {
     const sc = scriptData.scenes[i];
     onProgress({
       phase: isSpanish
-        ? `Locutando escena ${i + 1} de ${scriptData.scenes.length} con voz de ${settings.voice.name}...`
+        ? `Sintetizando locución escena ${i + 1} de ${scriptData.scenes.length} con voz de ${settings.voice.name}...`
         : `Synthesizing scene ${i + 1} of ${scriptData.scenes.length}...`,
-      percent: 15 + Math.round((i / scriptData.scenes.length) * 20),
+      percent: 10 + Math.round((i / scriptData.scenes.length) * 25),
       currentFrame: 0,
       totalFrames: 100,
     });
 
-    const speechResult = await generateSpeechAudioBlob(sc.text, edgeVoice);
-    const sceneDur = Math.max(5, Math.ceil(speechResult.duration) + 1);
+    const { arrayBuffer } = await generateSpeechAudioBuffer(sc.text, edgeVoice);
 
+    let decoded: AudioBuffer | null = null;
+    let sceneDuration = 6.5;
+
+    if (arrayBuffer && arrayBuffer.byteLength > 0) {
+      try {
+        decoded = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+        sceneDuration = Math.max(4.5, decoded.duration + 0.6);
+
+        const blob = new Blob([arrayBuffer], { type: "audio/mpeg" });
+        const blobUrl = URL.createObjectURL(blob);
+        sceneAudioUrls.push(blobUrl);
+      } catch (decodeErr) {
+        console.warn("Audio buffer decode fallback:", decodeErr);
+        sceneDuration = Math.max(5, Math.ceil(sc.text.split(" ").length * 0.42));
+      }
+    } else {
+      sceneDuration = Math.max(5, Math.ceil(sc.text.split(" ").length * 0.42));
+    }
+
+    decodedAudioBuffers.push(decoded);
     updatedScenes.push({
       ...sc,
-      durationSeconds: sceneDur,
-      audioUrl: speechResult.url,
+      durationSeconds: sceneDuration,
+      audioUrl: sceneAudioUrls[i] || "",
     });
-
-    if (speechResult.url) {
-      const audioEl = new Audio(speechResult.url);
-      audioEl.crossOrigin = "anonymous";
-      sceneAudioElements.push(audioEl);
-    }
   }
 
-  // 2. Preload visual images dynamically for each scene
+  // 3. Preload Unique Visual Images for Each Scene
   onProgress({
-    phase: isSpanish ? "Obteniendo metraje visual e imágenes en alta resolución..." : "Fetching high-res visual assets...",
+    phase: isSpanish ? "Buscando metraje e imágenes en alta resolución para cada escena..." : "Fetching unique visual assets for each scene...",
     percent: 40,
     currentFrame: 0,
     totalFrames: 100,
@@ -249,8 +246,9 @@ export async function renderRealVideo(
 
   for (let i = 0; i < updatedScenes.length; i++) {
     const scene = updatedScenes[i];
+    const visualQuery = scene.visualKeyword || `${settings.topic} scene ${i + 1}`;
     const visualUrl = await fetchThematicVisual(
-      scene.visualKeyword || settings.topic,
+      visualQuery,
       settings.visualSource || "auto",
       settings.stylePack.previewUrl
     );
@@ -271,7 +269,38 @@ export async function renderRealVideo(
     loadedImages.push(img);
   }
 
-  // 3. Connect Ambient Soundtrack in Web Audio
+  // 4. Schedule Speech Narration onto the Recording Stream at Exact Scene Timings
+  let accumulatedTime = 0.2; // slight pre-roll
+  const sceneTimeline: { startTime: number; endTime: number; duration: number }[] = [];
+
+  for (let i = 0; i < updatedScenes.length; i++) {
+    const dur = updatedScenes[i].durationSeconds;
+    const buf = decodedAudioBuffers[i];
+
+    if (buf) {
+      const sourceNode = audioContext.createBufferSource();
+      sourceNode.buffer = buf;
+
+      const voiceGain = audioContext.createGain();
+      voiceGain.gain.setValueAtTime(1.0, audioContext.currentTime);
+
+      sourceNode.connect(voiceGain);
+      voiceGain.connect(dest);
+
+      // Start speech at exact scheduled second
+      sourceNode.start(audioContext.currentTime + accumulatedTime);
+    }
+
+    sceneTimeline.push({
+      startTime: accumulatedTime,
+      endTime: accumulatedTime + dur,
+      duration: dur,
+    });
+
+    accumulatedTime += dur;
+  }
+
+  // 5. Connect Ambient Soundtrack into Recording Stream
   const osc1 = audioContext.createOscillator();
   const osc2 = audioContext.createOscillator();
   const filter = audioContext.createBiquadFilter();
@@ -294,7 +323,7 @@ export async function renderRealVideo(
   osc1.start();
   osc2.start();
 
-  // 4. Setup Canvas and MediaRecorder
+  // 6. Setup Canvas and MediaRecorder
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -318,7 +347,7 @@ export async function renderRealVideo(
 
   const recorder = new MediaRecorder(combinedStream, {
     mimeType,
-    videoBitsPerSecond: 3_500_000,
+    videoBitsPerSecond: 4_000_000,
   });
 
   const chunks: Blob[] = [];
@@ -328,9 +357,9 @@ export async function renderRealVideo(
 
   recorder.start(100);
 
-  // Calculate total render frames
-  const totalSceneSeconds = updatedScenes.reduce((acc, s) => acc + s.durationSeconds, 0);
-  const totalFrames = fps * Math.min(30, Math.max(12, totalSceneSeconds));
+  // Total recording duration based on actual spoken audio length
+  const totalVideoSeconds = Math.max(10, accumulatedTime + 0.5);
+  const totalFrames = Math.ceil(fps * totalVideoSeconds);
 
   let frameCount = 0;
 
@@ -338,7 +367,7 @@ export async function renderRealVideo(
     const renderLoop = () => {
       frameCount++;
       const currentSeconds = frameCount / fps;
-      const progressPercent = Math.min(95, 45 + Math.round((frameCount / totalFrames) * 50));
+      const progressPercent = Math.min(96, 45 + Math.round((frameCount / totalFrames) * 50));
 
       onProgress({
         phase: isSpanish
@@ -349,16 +378,21 @@ export async function renderRealVideo(
         totalFrames,
       });
 
-      // Determine active scene
-      let elapsed = 0;
+      // Determine active scene from timeline
       let activeSceneIndex = 0;
-      for (let i = 0; i < updatedScenes.length; i++) {
-        const dur = updatedScenes[i].durationSeconds || 6;
-        if (currentSeconds >= elapsed && currentSeconds < elapsed + dur) {
+      let sceneLocalTime = 0;
+
+      for (let i = 0; i < sceneTimeline.length; i++) {
+        const timing = sceneTimeline[i];
+        if (currentSeconds >= timing.startTime && currentSeconds < timing.endTime) {
           activeSceneIndex = i;
+          sceneLocalTime = currentSeconds - timing.startTime;
           break;
         }
-        elapsed += dur;
+        if (currentSeconds >= timing.endTime) {
+          activeSceneIndex = i;
+          sceneLocalTime = timing.duration;
+        }
       }
 
       const activeScene = updatedScenes[activeSceneIndex] || updatedScenes[0];
@@ -369,7 +403,7 @@ export async function renderRealVideo(
       ctx.fillRect(0, 0, width, height);
 
       if (activeImg && activeImg.complete && activeImg.naturalWidth > 0) {
-        const zoom = 1 + (frameCount % (fps * 7)) * 0.0016;
+        const zoom = 1 + (frameCount % (fps * 8)) * 0.0015;
         const drawW = width * zoom;
         const drawH = height * zoom;
         const drawX = (width - drawW) / 2;
@@ -398,9 +432,9 @@ export async function renderRealVideo(
       // Draw burned-in kinetic subtitles
       if (settings.subtitlesOn && activeScene) {
         const words = activeScene.text.split(" ");
-        const wordsPerSec = Math.max(1, words.length / (activeScene.durationSeconds || 6));
-        const sceneLocalSec = Math.max(0, currentSeconds - elapsed);
-        const activeWordIdx = Math.min(words.length - 1, Math.floor(sceneLocalSec * wordsPerSec));
+        const dur = activeScene.durationSeconds || 6;
+        const wordsPerSec = Math.max(1, words.length / dur);
+        const activeWordIdx = Math.min(words.length - 1, Math.floor(sceneLocalTime * wordsPerSec));
 
         // Subtitle card backdrop
         ctx.fillStyle = "rgba(14, 12, 11, 0.88)";
@@ -472,7 +506,7 @@ export async function renderRealVideo(
     title: scriptData.title,
     topic: settings.topic,
     durationMinutes: parseInt(settings.duration, 10),
-    durationFormatted: `${settings.duration}:00`,
+    durationFormatted: `${Math.floor(totalVideoSeconds / 60)}:${Math.floor(totalVideoSeconds % 60).toString().padStart(2, "0")}`,
     createdAt: isSpanish ? "Reciente" : "Just now",
     status: "ready",
     thumbnailUrl: loadedImages[0]?.src || settings.stylePack.previewUrl,

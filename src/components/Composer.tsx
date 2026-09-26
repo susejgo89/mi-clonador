@@ -47,10 +47,15 @@ export function Composer({
   const [selectedMusicId, setSelectedMusicId] = useState<string>("the_investigator");
 
   const durationCreditCost: Record<DurationOption, number> = {
+    "1": 5,
+    "3": 15,
+    "5": 25,
     "8": 35,
     "14": 60,
     "20": 85,
     "30": 120,
+    "45": 160,
+    "60": 200,
   };
 
   const currentCost = durationCreditCost[settings.duration];
@@ -214,14 +219,14 @@ export function Composer({
             <span className="text-[#8C8985] px-2 text-[11px] font-mono flex items-center gap-1">
               <Clock className="w-3 h-3 text-[#D9482E]" />
             </span>
-            {(["8", "14", "20", "30"] as DurationOption[]).map((dur) => (
+            {(["1", "3", "5", "8", "14", "20", "30", "45", "60"] as DurationOption[]).map((dur) => (
               <button
                 key={dur}
                 type="button"
                 onClick={() => onUpdateSettings((prev) => ({ ...prev, duration: dur }))}
-                className={`px-2.5 py-1 rounded-lg font-mono font-medium transition-colors cursor-pointer ${
+                className={`px-2 py-1 rounded-lg font-mono text-[11px] font-medium transition-colors cursor-pointer ${
                   settings.duration === dur
-                    ? "bg-[#D9482E] text-white font-bold"
+                    ? "bg-[#D9482E] text-white font-bold shadow"
                     : "text-[#A3A09A] hover:text-[#FAFAF7]"
                 }`}
               >

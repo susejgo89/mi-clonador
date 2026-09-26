@@ -1,6 +1,6 @@
 export type GenerationMode = "idea" | "voiceover";
 
-export type DurationOption = "8" | "14" | "20" | "30";
+export type DurationOption = "1" | "3" | "5" | "8" | "14" | "20" | "30" | "45" | "60";
 
 export type VisualSourceMode = "auto" | "ai" | "wikimedia" | "pexels" | "pixabay" | "upload";
 
