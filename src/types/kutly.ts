@@ -54,8 +54,10 @@ export interface VideoScene {
   id: number;
   text: string;
   visualKeyword: string;
+  visualKeywords?: string[];
   durationSeconds: number;
   imageUrl?: string;
+  imageUrls?: string[];
   videoUrl?: string;
   audioUrl?: string;
 }

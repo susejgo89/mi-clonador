@@ -255,45 +255,72 @@ export async function renderRealVideo(
     });
   }
 
-  // 3. Preload Unique Visual Images for Each Scene via CORS Proxy
+  // 3. Preload Multiple Dynamic B-Roll Images for Each Scene (Cut every 2.5 - 3.2s)
   onProgress({
-    phase: isSpanish ? "Cargando metraje e imágenes en alta resolución para cada escena..." : "Fetching unique visual assets for each scene...",
-    percent: 40,
+    phase: isSpanish
+      ? "Buscando tomas de apoyo (B-roll) de alta retención para cada escena..."
+      : "Fetching dynamic B-roll visual shots for each scene...",
+    percent: 38,
     currentFrame: 0,
     totalFrames: 100,
   });
 
-  const loadedImages: HTMLImageElement[] = [];
+  const loadedSceneImages: HTMLImageElement[][] = [];
+  let globalShotCounter = 0;
 
   for (let i = 0; i < updatedScenes.length; i++) {
     const scene = updatedScenes[i];
-    const visualQuery = scene.visualKeyword || `${settings.topic} scene ${i + 1}`;
-    const visualUrl = await fetchThematicVisual(
-      visualQuery,
-      settings.visualSource || "auto",
-      i,
-      settings.stylePack.previewUrl
-    );
+    const dur = scene.durationSeconds || 6;
+    // Calculate how many cuts/shots are needed so each shot lasts ~2.6 - 3.2 seconds
+    const shotsCount = Math.max(2, Math.min(8, Math.ceil(dur / 2.8)));
 
-    scene.imageUrl = visualUrl;
+    // Gather candidate visual keywords for this scene's shots
+    const rawKeywords: string[] = [];
+    if (scene.visualKeywords && Array.isArray(scene.visualKeywords) && scene.visualKeywords.length > 0) {
+      rawKeywords.push(...scene.visualKeywords);
+    }
+    if (scene.visualKeyword) {
+      rawKeywords.push(scene.visualKeyword);
+    }
+    if (rawKeywords.length === 0) {
+      rawKeywords.push(`${settings.topic} documentary scene ${i + 1}`);
+    }
 
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.src = visualUrl;
+    const sceneShots: HTMLImageElement[] = [];
+    const shotUrls: string[] = [];
 
-    await new Promise((resolve) => {
-      img.onload = resolve;
-      img.onerror = () => {
-        // Fallback to a diverse historical image from the catalog
-        const fallbackSrc = `/api/proxy-image?url=${encodeURIComponent(
-          DIVERSE_HISTORICAL_IMAGES[i % DIVERSE_HISTORICAL_IMAGES.length]
-        )}`;
-        img.src = fallbackSrc;
+    for (let s = 0; s < shotsCount; s++) {
+      const kw = rawKeywords[s % rawKeywords.length] || `${settings.topic} historical shot ${s + 1}`;
+      const visualUrl = await fetchThematicVisual(
+        kw,
+        settings.visualSource || "auto",
+        globalShotCounter,
+        DIVERSE_HISTORICAL_IMAGES[globalShotCounter % DIVERSE_HISTORICAL_IMAGES.length]
+      );
+      shotUrls.push(visualUrl);
+      globalShotCounter++;
+
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = visualUrl;
+
+      await new Promise((resolve) => {
         img.onload = resolve;
-        img.onerror = resolve;
-      };
-    });
-    loadedImages.push(img);
+        img.onerror = () => {
+          const fallbackSrc = `/api/proxy-image?url=${encodeURIComponent(
+            DIVERSE_HISTORICAL_IMAGES[globalShotCounter % DIVERSE_HISTORICAL_IMAGES.length]
+          )}`;
+          img.src = fallbackSrc;
+          img.onload = resolve;
+          img.onerror = resolve;
+        };
+      });
+      sceneShots.push(img);
+    }
+
+    scene.imageUrls = shotUrls;
+    scene.imageUrl = shotUrls[0];
+    loadedSceneImages.push(sceneShots);
   }
 
   // 4. Schedule Speech Narration onto the Recording Stream at Exact Scene Timings
@@ -425,21 +452,75 @@ export async function renderRealVideo(
       }
 
       const activeScene = updatedScenes[activeSceneIndex] || updatedScenes[0];
-      const activeImg = loadedImages[activeSceneIndex] || loadedImages[0];
+      const sceneShots = loadedSceneImages[activeSceneIndex] || [];
+      const sceneDur = Math.max(1, activeScene.durationSeconds || 6);
+      const totalShotsInScene = Math.max(1, sceneShots.length);
+      const shotDuration = sceneDur / totalShotsInScene; // ~2.5 - 3.0s per cut
 
-      // Draw background visual with Ken Burns slow cinematic zoom
+      const currentShotIndex = Math.min(
+        totalShotsInScene - 1,
+        Math.floor(sceneLocalTime / shotDuration)
+      );
+      const shotLocalTime = sceneLocalTime - currentShotIndex * shotDuration;
+      const shotProgress = Math.min(1, Math.max(0, shotLocalTime / shotDuration));
+
+      const currentImg = sceneShots[currentShotIndex] || sceneShots[0];
+      const prevImg = currentShotIndex > 0 ? sceneShots[currentShotIndex - 1] : null;
+
+      // Draw background visual with dynamic Ken Burns movement on each cut
       ctx.fillStyle = "#0E0C0B";
       ctx.fillRect(0, 0, width, height);
 
-      if (activeImg && activeImg.complete && activeImg.naturalWidth > 0) {
-        const sceneDur = activeScene.durationSeconds || 6;
-        const sceneRatio = Math.min(1, Math.max(0, sceneLocalTime / sceneDur));
-        const zoom = 1.0 + sceneRatio * 0.08;
+      const renderKenBurnsImage = (
+        img: HTMLImageElement | undefined,
+        progress: number,
+        shotIdx: number,
+        alpha: number = 1.0
+      ) => {
+        if (!img || !img.complete || img.naturalWidth <= 0) return;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+
+        // Alternate camera motions per shot: Zoom-in, Zoom-out, Pan-right, Pan-left
+        const motionType = shotIdx % 4;
+        let zoom = 1.0;
+        let panX = 0;
+        const panY = 0;
+
+        if (motionType === 0) {
+          // Slow dramatic push-in
+          zoom = 1.0 + progress * 0.09;
+        } else if (motionType === 1) {
+          // Slow dramatic pull-out
+          zoom = 1.09 - progress * 0.09;
+          panX = (progress - 0.5) * 35;
+        } else if (motionType === 2) {
+          // Tracking pan right with steady zoom
+          zoom = 1.06;
+          panX = (progress - 0.5) * 55;
+        } else {
+          // Tracking pan left with subtle zoom
+          zoom = 1.04 + Math.sin(progress * Math.PI) * 0.03;
+          panX = (0.5 - progress) * 55;
+        }
+
         const drawW = width * zoom;
         const drawH = height * zoom;
-        const drawX = (width - drawW) / 2;
-        const drawY = (height - drawH) / 2;
-        ctx.drawImage(activeImg, drawX, drawY, drawW, drawH);
+        const drawX = (width - drawW) / 2 + panX;
+        const drawY = (height - drawH) / 2 + panY;
+
+        ctx.drawImage(img, drawX, drawY, drawW, drawH);
+        ctx.restore();
+      };
+
+      // If within the first 0.32s of a cut and we have a previous image, crossfade smoothly
+      const crossfadeWindow = 0.32;
+      if (shotLocalTime < crossfadeWindow && prevImg) {
+        renderKenBurnsImage(prevImg, 1.0, currentShotIndex - 1, 1.0);
+        const blend = Math.max(0, Math.min(1, shotLocalTime / crossfadeWindow));
+        renderKenBurnsImage(currentImg, shotProgress, currentShotIndex, blend);
+      } else {
+        renderKenBurnsImage(currentImg, shotProgress, currentShotIndex, 1.0);
       }
 
       // Apply Style Pack color grading
@@ -603,7 +684,7 @@ export async function renderRealVideo(
     durationFormatted: `${Math.floor(totalVideoSeconds / 60)}:${Math.floor(totalVideoSeconds % 60).toString().padStart(2, "0")}`,
     createdAt: isSpanish ? "Reciente" : "Just now",
     status: "ready",
-    thumbnailUrl: loadedImages[0]?.src || settings.stylePack.previewUrl,
+    thumbnailUrl: loadedSceneImages[0]?.[0]?.src || settings.stylePack.previewUrl,
     aspectRatio: "16:9",
     voiceName: `${settings.voice.name} (${settings.voice.accent || "Español"})`,
     stylePackName: settings.stylePack.name,
